@@ -1,0 +1,77 @@
+NURSING-HOME DATABASE PUBLIC-SOURCE REVIEW
+As of 2026-10-30
+
+RESULTS
+3983 field-review rows cover 2710 unique facilities across 53 jurisdictions. All 407 verification-sample facilities and 2356 gap-list facilities are included; 53 facilities occur in both inputs.
+
+Sample administrator verdicts: 290 CONFIRMED; 49 CHANGED; 52 UNVERIFIABLE; 16 SOURCE_ERROR. Source errors are a distinct evidence-misattribution category, not confirmed replacements.
+
+Gap-list administrator review: 1161 supported / 1195 unresolved. Of the supported gap-list records, 785 were truly blank input names; the rest were low-confidence existing names confirmed or replaced. An accepted proposal may confirm an existing person rather than add a new name.
+
+All blank operator/direct-organizational-owner fields in the sample/gap union were reviewed: 1178 field checks; 126 supported values and 1052 without a proposed value. These are field counts, not additional facilities. 96 operator/chain spot-check fields across 48 sample facilities are retained (requested minimum 40 facilities). 14 of those chain checks confirm only a blank published CMS field.
+
+HOW TO READ STATE_SUMMARY.CSV
+- rows_checked: unique facilities in the sample/gap union, not CSV field rows.
+- confirmed and changed: final administrator verdicts for the verification sample only.
+- unverifiable: verification-sample UNVERIFIABLE plus SOURCE_ERROR. Detailed separate counts and concrete source-error CCNs are in validation.json.
+- gaps_filled and gaps_still_open: unique gap-list facilities with and without an accepted administrator proposal. Low-confidence nonblank names are included; these are not all new-name additions.
+- best_public_source/source_url: most useful source found for administrator verification in that jurisdiction. Facility-specific examples are not presented as statewide administrator rosters; absence of a current named source is stated.
+
+SYSTEMATIC ISSUES / CONCRETE EXAMPLES
+
+Historical confirmation is not current appointment evidence
+Example CCN 025038: The 2023 NPPES authorized-official Administrator entry does not establish current Maple Springs tenure. Dated candidate retained in note; current proposal withheld.
+Source: https://npiregistry.cms.hhs.gov/api/?version=2.1&number=1689130189
+
+Corporate or managing-employee role confused with facility administrator
+Example CCN 085032: Nicole Bowser is identified as corporate VP Legal/In-house Counsel, not Westminster Village facility administrator. SOURCE_ERROR retained; historical Nicholas Shockley evidence is not promoted as current.
+Source: https://dhss.delaware.gov/wp-content/uploads/sites/6/2025/10/Nursinghomes9.26.25.pdf | https://www.presbyterianseniorliving.org/news-and-updates/nicole-bowser-promoted-to-vice-president-legal-/-in-house-counsel
+
+Current directory can retain a deceased former administrator
+Example CCN 325119: The association still listed Edwardo Rivera; primary funeral-home obituary identifies the same Albuquerque facility director and death January 5, 2026. Candidate withdrawn, with no unsupported replacement.
+Source: https://www.devargasfuneral.com/obituaries/edwardo-rivera | https://www.ahcfacilities.com/facility-location/albuquerque/
+
+Cross-facility conflicts and disagreeing public rosters
+Example CCN 415050: Dawn Hill state record named Elisabeth Woolf; dated Ombudsman directory named Douglas Klein. Current Fox Hill Connecticut page and 2026 testimony assign Elisabeth to another facility. Neither name proposed for Dawn Hill. Additional unresolved RI conflicts: 415033, 415087, 415040.
+Source: https://datahealth.ri.gov/lists/licensees/index.php | https://alliancebltc.org/wp-content/uploads/2021/04/ABLTC-nursing-home-list.pdf | https://ccfoxhill.com/contact | https://www.cga.ct.gov/2026/APPdata/TMY/2026HB-05032-R000218-Woolf%2C%20Elisabeth%2C%20Administrator-Complete%20Care%20Fox%20Hill--TMY.PDF
+
+Missing-value text is not an organization
+Example CCN 09E020: CMS Legal Business Name Not Available is a sentinel, not a legal entity. Similar sentinels at16E668,38E040,53A002,535045 were also withheld in final union-gap checks.
+Source: https://data.cms.gov/provider-data/api/1/datastore/query/4pq5-n9py/0?conditions%5B0%5D%5Bproperty%5D=cms_certification_number_ccn&conditions%5B0%5D%5Bvalue%5D=09E020&conditions%5B0%5D%5Boperator%5D=%3D&limit=1000
+
+Direct owners, indirect owners and managers are different fields
+Example CCN 475037: Final organization review accepts only explicit direct organizational owners FAIR OAKS FAMILY HOLDINGS LLC and SAMARA HOLDINGS COMPANY LLC (25% each). Indirect owners, individual owners, officers and managers are excluded; missing percentages elsewhere are not invented.
+Source: https://data.cms.gov/provider-data/api/1/datastore/query/y2hd-n93e/0?conditions%5B0%5D%5Bproperty%5D=cms_certification_number_ccn&conditions%5B0%5D%5Bvalue%5D=475037&conditions%5B0%5D%5Boperator%5D=%3D&limit=1000
+
+Do not repair identifiers by stripping suffixes or name-only matching
+Example CCN 085034001: Supplied suffix-bearing identifier is preserved, not collapsed into085034. No matching incumbent is imported from the base record. Conversely725007 is a documented exact Ohio state Medicare-ID exception to current CMS absence.
+Source: https://data.cms.gov/provider-data/dataset/4pq5-n9py
+
+State directory address can point to the wrong campus
+Example CCN 085010: Delaware portal copied another facility address; Milford Center matched through state license1155 and its actual700MarvelRoad address. The wrong portal address was not used for linkage.
+Source: https://dhss.delaware.gov/wp-content/uploads/sites/14/2026/06/1155_milford_avcv_03092026.pdf
+
+Blank CMS chain field is not proof of no affiliation
+Example CCN 035284: The spot check confirms that CMS publishes a blank chain_name, not that no chain exists. The blank is not a deletion instruction.
+Source: https://azcarecheck.azdhs.gov/s/facility-details?facilityId=0018y000008f98PAAQ&activeTab=details
+
+Reporting month, document date and access date are not interchangeable
+Example CCN 075437: StoneRidge disclosure is explicitly May2026; source_date is2026-05 rather than an invented day or October access date. Access date remains in the note.
+Source: https://portal.ct.gov/dss/-/media/departments-and-agencies/dss/health-and-home-care/continuing-care-facility/disclosure-statements/2026/clean-stoneridge--disclosure-statement-20260604-with-exhibits.pdf
+
+MERGE AND EVIDENCE POLICY
+The final template columns match the supplied template exactly. Original CCNs, facility names, states and current values are preserved. Import the CCN column as Text in spreadsheet software to retain leading zeros and suffixes. 35 overlapping sample/remaining administrator reviews were reconciled in favor of the stronger final conservative review, with required sample verdicts and dated source evidence retained. No original values differed between overlapping sample and gap inputs.93 sample-only missing organization field reviews were added; 13 supported legal-entity/direct-owner values were independently rechecked against live exact-CCN CMS API responses, while 5 legal-name sentinels were explicitly rejected.
+
+Historical-only evidence without current role corroboration is retained in notes, not proposed as current. 2025 license approvals covering an active 2026 license term are distinguished from stale dated correspondence. Current undated official/association pages retain access dates and appropriate medium-confidence caveats. Month-only dates preserve the source precision; no day is invented. CMS processing dates remain 2026-10-01.
+
+Blank proposed_value means no supported proposal, not an instruction to erase a current value. A blank organization field may be legitimate where CMS reports only individual owners or does not disclose a legal entity. Source URLs can be dynamic portals; reproducible facility IDs and exact identifiers are retained in notes. Dated archived/indexed evidence and retrieval limitations remain explicitly labeled.
+
+No LinkedIn source URLs are accepted in the final file. No facilities or individuals were contacted, no account-gated evidence was used, and no repository files were modified. This is a bounded public-source audit, not a guarantee of real-time employment or proof that no further public evidence exists.
+
+DELIVERABLES
+chatgpt_response.csv — exact-template field review.
+state_summary.csv — requested state summary.
+validation.json — coverage, final counts, date precision, source errors, exceptions and input hashes.
+merge_decisions.json — overlap precedence and final conservative adjudications.
+additional_cms_live_checks.json — live supporting checks for final organization additions/sentinels.
+manifest.json — output SHA-256 checksums.

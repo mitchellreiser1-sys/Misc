@@ -293,7 +293,7 @@ def main():
             rows.append({
                 "ccn": ccn, "source": "STATE_" + clean(rec.get("state")).upper(), "party_type": "Person", "name": name,
                 "first_name": "", "last_name": "", "title": clean(rec.get("administrator_title")) or "Administrator",
-                "role": "ADMINISTRATOR (STATE LICENSING DIRECTORY)", "ownership_pct": "", "association_date": "",
+                "role": "ADMINISTRATOR (STATE LICENSING DIRECTORY)", "ownership_pct": "", "association_date": clean(rec.get("source_date"))[:10],
                 "org_flags": "", "other_type_text": "", "dba": "", "party_address": "", "party_city": "", "party_state": "", "party_zip": "",
                 "phone": clean(rec.get("administrator_phone")), "email": clean(rec.get("administrator_email")),
                 "source_url": clean(rec.get("source_url")), "source_date": clean(rec.get("source_date")),
@@ -304,6 +304,13 @@ def main():
         print(f"  state file {os.path.basename(sf)}: {n} administrator rows matched to CCN")
 
     people = pd.DataFrame(rows)
+    excl_path = os.path.join(raw, "state_administrators", "exclusions.csv")
+    if os.path.exists(excl_path):
+        ex = read_csv(excl_path)
+        bad = set(zip(ex["ccn"].str.zfill(6), ex["administrator_name"].map(person_key)))
+        before = len(people)
+        people = people[~people.apply(lambda r: r["party_type"] == "Person" and (r["ccn"], person_key(r["name"])) in bad, axis=1)]
+        print(f"  exclusions applied: {before - len(people)} rows dropped")
     people["name_key"] = people.apply(lambda r: person_key(r["name"]) if r["party_type"] == "Person" else org_key(r["name"]), axis=1)
     for col in ("provider_name", "state", "city"):
         people["facility_" + col] = people["ccn"].map(fac_idx[col]).fillna("")
@@ -317,12 +324,13 @@ def main():
     persons = people[people["party_type"] == "Person"]
     for r in persons.itertuples(index=False):
         src, role, title = r.source, r.role, r.title
-        if src.startswith("STATE_") and (not title or is_admin_title(title) or title.upper().startswith("CONTACT PERSON")):
+        if src.startswith("STATE_") and (not title or is_admin_title(title)) and r.match_confidence == "high":
             tier, basis = 1, f"State licensing directory lists this person as '{title or 'Administrator'}'"
         elif src == "PECOS" and is_admin_title(title):
             tier, basis = 2, f"PECOS disclosure title '{title}' ({role})"
         elif src.startswith("STATE_"):
-            tier, basis = 3, f"State licensing directory contact with non-administrator title '{title}'"
+            tier, basis = 3, (f"State directory contact with non-administrator title '{title}'" if title and not is_admin_title(title)
+                              else f"State directory row with {r.match_confidence} match confidence")
         elif src == "NPPES" and is_admin_title(title):
             tier, basis = 4, f"NPI Registry authorized official, title '{title}'"
         elif src in ("PECOS", "CARE_COMPARE") and role in MGMT_ROLES and not title:
@@ -349,7 +357,8 @@ def main():
 
     # ------------------------------------------------------ owners_operators
     print("building owners_operators", flush=True)
-    pp = people[people["source"] == "PECOS"]
+    pecos_ccns = set(people.loc[people["source"] == "PECOS", "ccn"])
+    pp = people[(people["source"] == "PECOS") | ((people["source"] == "CARE_COMPARE") & ~people["ccn"].isin(pecos_ccns))]
 
     def joined(df, fmt):
         return df.groupby("ccn").apply(lambda g: "; ".join(dict.fromkeys(fmt(r) for r in g.itertuples(index=False)))).rename("v")
@@ -388,6 +397,10 @@ def main():
         else:
             f = lambda r: r.name
         oo[col] = oo["ccn"].map(joined(df, f)).fillna("") if len(df) else ""
+    oo["owner_data_source"] = oo["ccn"].map(lambda c: "PECOS" if c in pecos_ccns else ("CARE_COMPARE" if c in set(pp["ccn"]) else ""))
+    no_op = oo["operator_entity_name"] == ""
+    oo.loc[no_op, "operator_entity_name"] = oo.loc[no_op, "legal_business_name"]
+    oo["operator_source"] = ["PECOS enrollment" if c in pecos_ccns else ("Care Compare legal business name" if n else "") for c, n in zip(oo["ccn"], oo["operator_entity_name"])]
     oo["individual_owner_count"] = oo["ccn"].map(pp[pp["role"].isin(OWNERSHIP_ROLES) & (pp["party_type"] == "Person")].groupby("ccn")["name_key"].nunique()).fillna(0).astype(int)
     oo["disclosed_party_count"] = oo["ccn"].map(pp.groupby("ccn")["name_key"].nunique()).fillna(0).astype(int)
 
@@ -399,6 +412,7 @@ def main():
     fm = fm.merge(oo.drop(columns=["provider_name", "city", "state", "legal_business_name", "ownership_type", "operator_entity_name", "operator_dba",
                                    "operator_entity_type", "proprietary_or_nonprofit", "operator_incorporation_state", "chain_name", "chain_id",
                                    "chain_facility_count", "affiliated_entity_name", "changed_ownership_last_12_months"]), on="ccn", how="left")
+    fm["operator_entity_name"] = fm["ccn"].map(oo.set_index("ccn")["operator_entity_name"]).fillna("")
     fm["state_license_number_nppes"] = fm["ccn"].map(nppes_lic).fillna("")
     fm = fm.fillna("")
     lead = ["ccn", "provider_name", "address", "city", "state", "zip", "county", "phone", "certified_beds", "ownership_type", "overall_rating",

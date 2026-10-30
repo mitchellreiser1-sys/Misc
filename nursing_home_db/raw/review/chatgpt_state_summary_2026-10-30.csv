@@ -1,0 +1,54 @@
+state,rows_checked,confirmed,changed,unverifiable,gaps_filled,gaps_still_open,best_public_source,source_url
+AK,21,0,1,2,6,14,CMS Tribal Nursing Home & Assisted Living Facility Directory,https://www.cms.gov/files/document/tribal-nursing-home-assisted-living-facility-directory-2026.pdf
+AL,8,8,0,0,0,0,Alabama ADPH Health Care Facilities Directory,https://dph1.adph.state.al.us/FacilitiesDirectoryReports/Reports/ReportDirectory-2026-10-30-0915492986126.pdf
+AR,10,8,0,0,0,2,Arkansas DHS OLTC facility profile,https://humanservices.arkansas.gov/facilities/concordia-nursing-and-rehab-llc/
+AZ,80,7,1,0,77,2,Arizona ADHS AZ Care Check,https://azcarecheck.azdhs.gov/s/facility-details?facilityId=0018y000008f8QqAAI&activeTab=details
+CA,65,8,0,0,7,50,California CDPH Licensed and Certified Healthcare Facility Listing,https://data.chhs.ca.gov/dataset/3b5b80e8-6b8d-4715-b3c0-2699af6e72e5/resource/f0ae5731-fef8-417f-839d-54a0ed3a126e/download/health_facility_locations.csv
+CO,134,3,2,3,82,47,Colorado Health Care Association Care Finder,https://www.cohca.org/consumers/find-care/mountain-vista-senior-living-community-2/
+CT,36,0,1,7,17,12,Current official nursing-home administrator pages (example: Complete Care Middlebury),https://ccmiddlebury.com/contact
+DC,9,8,0,0,0,1,DC Health Nursing Home Directory,https://dchealth.dc.gov/sites/default/files/2026-09/Nursing%20Home%20Directory_0.pdf
+DE,44,1,4,3,27,14,Delaware DHCQ signed nursing-home survey / plan of correction,https://dhss.delaware.gov/wp-content/uploads/sites/14/2026/08/1107_park_avcv_05072026.pdf
+FL,30,6,0,2,3,19,Florida AHCA FloridaHealthFinder provider profile,https://quality.healthfinder.fl.gov/Facility-Provider/Profile/?LID=28367
+GA,15,8,0,0,2,5,Georgia DCH GaMap2Care,https://forms.dch.georgia.gov/HFRD/GetFacilitiesData.svc/GetData?FACTYPE=Nursing%20Home
+GU,1,0,0,1,0,1,No current administrator established; strongest reviewed source: Guam Memorial Hospital Authority official SNF administrator recruitment; Guam Memorial Hospital Authority official SNF administrator vacancy,https://www.gmha.org/wp-content/uploads/Job_Announcements/FY2026/LONG-TERM-CARE-ADMINISTRATOR-SNF-26-20.pdf
+HI,10,7,1,0,0,2,Hawaii DOH OHCA Skilled Nursing/Intermediate Care Facilities,https://health.hawaii.gov/ohca/medicare-facilities/skilled-nursingintermediate-care-facilities/
+IA,45,7,1,0,38,0,Iowa DIAL Health Facilities Division Public Entity Details - Provisional Administrator,https://dia-hfd.iowa.gov/Home/PublicEntityDetails?recordid=690
+ID,8,8,0,0,0,0,Idaho DHW Long Term Care/SNF Facility List,https://publicdocuments.dhw.idaho.gov/WebLink/ElectronicFile.aspx?docid=26909&dbid=0&repo=PUBLIC-DOCUMENTS
+IL,447,4,4,0,398,43,Illinois Department of Public Health LLCS Facility Lookup,https://llcs.dph.illinois.gov/s/facility-lookup?language=en_US
+IN,11,8,0,0,1,2,Indiana IDOH LTC Facility Directory,https://www.in.gov/health/reports/QAMIS/ltcdir/wdirLtc.htm
+KS,10,8,0,0,0,2,Kansas KDADS facility directory,"https://webapps.kdads.ks.gov/prod/f?p=113:901:::::P901_FACILITY_TYPE,P901_SOURCE:NF,P"
+KY,8,7,1,0,0,0,Kentucky CHFS OIG Long Term Care Directory,https://www.chfs.ky.gov/agencies/os/oig/dhc/Documents/Long%20Term%20Care%20Directory.xlsx
+LA,9,8,0,0,0,1,Louisiana LDH Licensed Providers Report October 2026,https://ldh.la.gov/assets/hss/DirectorySpreadsheets/Licensed_Providers_Report_2026_10.xlsx
+MA,270,0,2,6,48,220,"Official facility leadership pages (example: Holden Rehabilitation, Oriol Health Care)",https://www.oriolhealthcare.com/our-nursing-centers/holden-rehabilitation-skilled-nursing-center/our-team/
+MD,8,0,0,8,0,0,No current administrator established; strongest reviewed source: Maryland OHCQ Long Term Care Licensee Directory,https://health.maryland.gov/ohcq/docs/Provider-Listings/Excel/Long-Term-Care-Facilities-EXCEL.xlsx
+ME,15,8,0,0,0,7,Maine DHHS licensed provider search,https://gateway.maine.gov/dhhs-apps/aspen/index.asp
+MI,102,2,1,5,30,65,Official facility leadership/board pages (example: Jackson County Medical Care Facility),https://jacksonmcf.com/new-page
+MN,31,8,0,0,0,23,Minnesota MDH Provider Directory,https://provider-profile-api.web.health.state.mn.us/csv?providerGroup=Nursing+Homes&providerType=&county=&city=&name=&id=&zipCode=&miles=5&limit=0
+MO,14,8,0,0,0,6,Missouri DHSS LTC Directory,https://data.mo.gov/api/views/fenu-sipv/rows.csv?accessType=DOWNLOAD
+MS,9,8,0,0,1,0,Mississippi DOH Health Facilities Directory,https://msdh-production-assets.s3.amazonaws.com/media/JP0bYuHZMrPmLhpTmqWRuoDiRbRlSIMSS6BsMzML.pdf
+MT,55,1,6,1,35,14,Montana Health Care Association Skilled Nursing Facilities,https://www.montanahealthcareassociation.org/skilled-nursing-facilities.html
+NC,23,8,0,0,1,14,North Carolina DHSR Nursing Home Listing,https://info.ncdhhs.gov/dhsr/data/Nhlist_a.xlsx
+ND,20,6,0,2,1,13,North Dakota Long Term Care Association member directory,https://ndltca.org/membership-facilities/
+NE,11,7,0,1,1,3,Nebraska DHHS Long Term Care Roster,https://dhhs.ne.gov/licensure/Documents/LTCRoster.pdf
+NH,64,4,2,2,30,31,Current official facility leadership pages (example: Dover Center),https://dovercenterrehab.com/about/
+NJ,20,8,0,0,4,8,New Jersey DOH licensed facility details,https://healthapps.nj.gov/facilities/fsFacilityDetails.aspx?item=NJ60301
+NM,66,1,4,3,39,23,New Mexico Health Care Association member directory,https://members.nmhca.org/memberdirectory/Details/santa-fe-care-center-526169
+NV,13,8,0,0,2,3,Nevada Health Facilities public licensing search,https://nvdpbh.aithent.com/Protected/LIC/LicenseeSearch.aspx?Program=HF&PubliSearch=Y&returnURL=~/Login.aspx?TI=2
+NY,484,2,2,4,151,328,"Official facility/operator leadership pages (example: Chautauqua, Living Legends)",https://livinglegendshealth.com/chautauqua/
+OH,10,8,0,0,1,1,Ohio DOH Enhanced Information Dissemination,https://publicapps.odh.ohio.gov/eid/default.aspx
+OK,10,8,0,0,1,1,Oklahoma OSDH Nursing Home Facilities Directory,https://healthokgov.app.box.com/index.php?rm=box_download_shared_file&shared_name=1sdgq0x18h399vyduxw4rwzqh1ox3h1i&file_id=f_2516346987653
+OR,11,8,0,0,3,0,Oregon ODHS LTC Licensing provider profile,https://ltclicensing.oregon.gov/Providers/Details/385104
+PA,55,3,5,0,35,12,Pennsylvania Department of Health — NCF Facilities October 2026,https://apps.health.pa.gov/NCFFacilities/NCFOwnerLicensePull_202610.aspx
+PR,9,0,0,3,0,6,No current administrator established; strongest reviewed source: Facility-specific public-source review,https://www.salud.pr.gov/CMS/187
+RI,51,2,6,0,39,7,Rhode Island Department of Health active Nursing Facility licensee list,https://datahealth.ri.gov/lists/licensees/index.php
+SC,8,8,0,0,0,0,South Carolina DPH Health Facilities,https://services5.arcgis.com/G4BLIH7rTQoIjCFv/arcgis/rest/services/Health_Facilities/FeatureServer/0/query?where=PERMIT_TYPE%3D%27HLNURSINGCARE%27&outFields=*&returnGeometry=false&f=json
+SD,28,1,2,5,3,17,Bethel Community official leadership,https://www.bethelcommunity.com/our-team
+TN,8,7,1,0,0,0,Tennessee Health Care Association facility directory,https://www.thca.org/facility-finder/nhc-healthcare-johnson-city/
+TX,16,8,0,0,0,8,Texas HHSC Nursing Facility Directory,https://apps.hhs.texas.gov/providers/directories/NF.xlsx
+UT,8,8,0,0,0,0,Utah DHHS Licensed Health Care Facilities,https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/LicensedHealthCareFacilities/FeatureServer/0/query?where=1%3D1&outFields=*&returnGeometry=false&f=json
+VA,210,2,2,4,76,129,Virginia VDH approved nursing-home license applications (example: active2026license),https://vita-vdh.my.site.com/apex/vdh_applicationView?ext=1&id=0f0cs0000032nyzAAA
+VT,15,3,0,5,0,7,Pine Heights official center leadership,https://pineheightsbrattleboro.com/about/
+WA,15,8,0,0,0,7,Washington DSHS nursing home locator,https://fortress.wa.gov/dshs/adsaapps/Lookup/NHAdvLookup.aspx
+WI,8,8,0,0,0,0,Wisconsin DHS Nursing Home Provider Directory,https://www.dhs.wisconsin.gov/guide/nhdirexcel.xlsx
+WV,34,7,0,1,2,25,West Virginia OHFLAC facility profile,https://ohflac.wvdhhr.org/Apps/Lookup/FacilityDetails/160
+WY,8,8,0,0,0,0,Wyoming DOH HLS Healthcare Facility Directory 2026-2027,https://health.wyo.gov/wp-content/uploads/2026/09/2026-2027-Facility-Directory.pdf
