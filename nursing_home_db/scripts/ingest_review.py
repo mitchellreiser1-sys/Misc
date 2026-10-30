@@ -18,16 +18,24 @@ STATE_AGENCY_HOSTS = ("llcs.dph.illinois.gov", "dia-hfd.iowa.gov", "vita-vdh.my.
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("checks"); ap.add_argument("out"); ap.add_argument("--as-of", default="2026-10-30")
+    ap.add_argument("--skip-hosts", default="", help="comma-separated hosts to ignore (e.g. a portal already imported as a state file)")
     a = ap.parse_args()
     d = pd.read_csv(a.checks, dtype=str, keep_default_na=False)
     rows = []
+    skip_hosts = set(a.skip_hosts.split(",")) if a.skip_hosts else set()
     for r in d.itertuples(index=False):
         if r.check not in ("NAME_FOUND", "SKIP_PORTAL", "UNREACHABLE"):
             continue
         host = urllib.parse.urlparse(r.source_url.split(" | ")[0]).netloc
+        if host in skip_hosts:
+            continue
+        confirmed = str(getattr(r, "note", "")).startswith("CONFIRMED")
         if r.check == "NAME_FOUND":
-            conf = "high" if (host in STATE_AGENCY_HOSTS and r.confidence == "high") else "medium"
-            method, note = "ccn_direct", "name confirmed on cited source by Claude re-check"
+            # a second independent public source naming the same person, or a state agency source, ranks high
+            conf = "high" if (confirmed or (host in STATE_AGENCY_HOSTS and r.confidence == "high")) else "medium"
+            method, note = "ccn_direct", ("confirmed by a second public source, checked by Claude" if confirmed else "name confirmed on cited source by Claude re-check")
+        elif confirmed:
+            continue  # an unverifiable confirmation adds nothing
         else:
             conf, method, note = "low", "manual", "reported by external review from a source Claude could not open; not independently verified"
         name = r.proposed_value.strip()
