@@ -192,28 +192,55 @@ section.grp .one { font-size: 15px; }
     view: "facilities", filtered: { facilities: [], people: [], orgs: [] }, shown: { facilities: 0, people: 0, orgs: 0 } };
 
   // ---------- data ----------
+  async function getJson(url, statusEl, label) {
+    if (statusEl) statusEl.textContent = `Loading ${label}…`;
+    const r = await fetch(url, { cache: "force-cache" });
+    if (!r.ok) throw new Error(`${url} returned HTTP ${r.status}`);
+    const total = +r.headers.get("content-length") || 0;
+    if (!r.body || !statusEl) return r.json();
+    const reader = r.body.getReader(); const chunks = []; let got = 0;
+    for (;;) {
+      const { done, value } = await reader.read(); if (done) break;
+      chunks.push(value); got += value.length;
+      statusEl.textContent = `Loading ${label}… ${(got / 1048576).toFixed(1)}${total ? " of " + (total / 1048576).toFixed(1) : ""} MB`;
+    }
+    const buf = new Uint8Array(got); let off = 0; for (const c of chunks) { buf.set(c, off); off += c.length; }
+    statusEl.textContent = `Preparing ${label}…`;
+    return JSON.parse(new TextDecoder().decode(buf));
+  }
+  const loaded = {};
   async function load() {
-    const [fac, people, orgs, meta] = await Promise.all(
-      ["data/facilities.json", "data/people.json", "data/orgs.json", "data/meta.json"].map((u) => fetch(u).then((r) => r.json())));
-    state.fac = fac.map((f) => ({ ...f, _s: [f.name, f.city, f.st, f.zip, f.county, f.adm, f.op, f.chain, f.mgmt, f.ccn].join(" ").toLowerCase(),
-      _beds: +f.beds || 0, _rating: +f.rating || 0 }));
+    const fac = await getJson("data/facilities.json", $("status-fac"), "facilities");
+    state.fac = fac.map((f) => ({ ...f, name: f.name || "(name not listed)", city: f.city || "", st: f.st || "", zip: f.zip || "",
+      _s: [f.name, f.city, f.st, f.zip, f.adm, f.op, f.chain, f.ccn].join(" ").toLowerCase(), _beds: +f.beds || 0, _rating: +f.rating || 0 }));
     state.fac.forEach((f) => state.byCcn.set(f.ccn, f));
-    state.people = people.map((p) => ({ ...p, _n: p.n.toLowerCase() }));
-    state.orgs = orgs.map((p) => ({ ...p, _n: p.n.toLowerCase() }));
     const states = [...new Set(state.fac.map((f) => f.st))].sort();
     for (const id of ["st-fac", "st-people", "st-orgs"]) {
       const sel = $(id);
       for (const s of states) { const o = document.createElement("option"); o.value = s; o.textContent = s; sel.appendChild(o); }
     }
-    $("meta").textContent = `${meta.facilities.toLocaleString()} facilities, ${meta.with_admin.toLocaleString()} with a named administrator, ${meta.people.toLocaleString()} people, ${meta.orgs.toLocaleString()} organizations. Sources: CMS Care Compare, PECOS, NPI Registry, state licensing directories. Built ${meta.built}.`;
-    applyFac(); applyIdx("people"); applyIdx("orgs");
+    loaded.facilities = true;
+    applyFac();
+    getJson("data/meta.json").then((meta) => {
+      $("meta").textContent = `${meta.facilities.toLocaleString()} facilities, ${meta.with_admin.toLocaleString()} with a named administrator, ${meta.people.toLocaleString()} people, ${meta.orgs.toLocaleString()} organizations. Sources: CMS Care Compare, PECOS, NPI Registry, state licensing directories. Built ${meta.built}.`;
+    }).catch(() => { $("meta").textContent = ""; });
     const h = location.hash.replace("#", "");
     if (["people", "orgs"].includes(h)) switchView(h);
   }
+  async function ensureIdx(kind) {
+    if (loaded[kind]) return;
+    if (loaded[kind + "_p"]) return loaded[kind + "_p"];
+    const statusEl = $(kind === "people" ? "status-people" : "status-orgs");
+    loaded[kind + "_p"] = getJson(`data/${kind}.json`, statusEl, kind === "people" ? "people (8 MB)" : "organizations (2 MB)")
+      .then((rows) => { state[kind] = rows.map((p) => ({ ...p, _n: p.n.toLowerCase() })); loaded[kind] = true; applyIdx(kind); })
+      .catch((err) => { statusEl.textContent = "Could not load " + kind + ". " + err.message; loaded[kind + "_p"] = null; });
+    return loaded[kind + "_p"];
+  }
   async function loadDetails() {
     if (state.details) return state.details;
-    if (!state.detailsLoading) state.detailsLoading = Promise.all(["data/details0.json", "data/details1.json"].map((u) => fetch(u).then((r) => r.json())))
-      .then(([a, b]) => (state.details = Object.assign(a, b)));
+    if (!state.detailsLoading) state.detailsLoading = Promise.all(["data/details0.json", "data/details1.json"].map((u) => getJson(u)))
+      .then(([a, b]) => (state.details = Object.assign(a, b)))
+      .catch((err) => { state.detailsLoading = null; throw err; });
     return state.detailsLoading;
   }
 
@@ -272,6 +299,7 @@ section.grp .one { font-size: 15px; }
 
   // ---------- people / orgs ----------
   function applyIdx(kind) {
+    if (!loaded[kind]) { ensureIdx(kind); return; }
     const q = $(kind === "people" ? "q-people" : "q-orgs").value.trim().toLowerCase(), st = $(kind === "people" ? "st-people" : "st-orgs").value;
     const terms = q.split(/\s+/).filter(Boolean);
     const src = kind === "people" ? state.people : state.orgs;
@@ -287,8 +315,10 @@ section.grp .one { font-size: 15px; }
   const grp = (title, body) => body ? `<section class="grp"><h3>${title}</h3>${body}</section>` : "";
   async function openFacility(ccn) {
     const f = state.byCcn.get(ccn); if (!f) return;
-    showDrawer(`<div class="top"><div><h2>${esc(f.name)}</h2><div class="addr">${esc(f.city)}, ${esc(f.st)}</div></div><button class="close" data-close>Close</button></div><div class="status">Loading details…</div>`);
-    const det = await loadDetails(); const d = det[ccn] || f;
+    showDrawer(`<div class="top"><div><h2>${esc(f.name)}</h2><div class="addr">${esc(f.city)}, ${esc(f.st)}</div></div><button class="close" data-close>Close</button></div><div class="status">Loading owner and operator details (16 MB, first time only)…</div>`);
+    let d = f;
+    try { const det = await loadDetails(); d = det[ccn] || f; }
+    catch (err) { $("drawer").querySelector(".status").textContent = "Could not load the detail file. " + err.message + " Showing the summary row only."; await new Promise((r) => setTimeout(r, 1200)); }
     const chip = d.adm ? `<span class="chip ${esc(d.admc)}">${esc(d.admc)}</span>` : `<span class="chip none">none found</span>`;
     const srcName = { PECOS: "CMS PECOS disclosure", CARE_COMPARE: "CMS Care Compare ownership", NPPES: "NPI Registry authorized official" }[d.adms] ||
       (d.adms ? `${d.adms.replace("STATE_", "")} state licensing directory` : "");
@@ -343,7 +373,8 @@ section.grp .one { font-size: 15px; }
       $("view-" + k).hidden = k !== v; $("ctl-" + (k === "facilities" ? "facilities" : k)).hidden = k !== v;
       $("tab-" + k).setAttribute("aria-selected", k === v ? "true" : "false");
     }
-    if (location.hash.replace("#", "") !== v) history.replaceState(null, "", "#" + v);
+    if (location.hash.replace("#", "") !== v) { try { history.replaceState(null, "", "#" + v); } catch (e) { /* hash not writable here */ } }
+    if (v !== "facilities" && !loaded[v]) ensureIdx(v);
   }
   document.querySelector("nav").addEventListener("click", (e) => { const b = e.target.closest("[data-view]"); if (b) switchView(b.dataset.view); });
   window.addEventListener("hashchange", () => { const h = location.hash.replace("#", ""); if (["facilities", "people", "orgs"].includes(h)) switchView(h); });
@@ -360,6 +391,8 @@ section.grp .one { font-size: 15px; }
     const p = e.target.closest("[data-idx]"); if (p) { openIdx(p.dataset.idx, p.dataset.n); }
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
-  load().catch((err) => { $("status-fac").textContent = "Could not load the data files. " + err; });
+  load().catch((err) => { $("status-fac").innerHTML = "Could not load the facility list. " + esc(err.message) + ' <button class="more" id="retry">Try again</button>';
+    $("retry").addEventListener("click", () => { $("status-fac").textContent = "Retrying…"; load().catch((e2) => { $("status-fac").textContent = "Still failing: " + e2.message; }); }); });
+  window.addEventListener("error", (e) => { const s = $("status-fac"); if (s && !state.fac.length) s.textContent = "Script error: " + (e.message || e); });
 })();
 </script>

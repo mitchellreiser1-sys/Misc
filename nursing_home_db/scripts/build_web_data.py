@@ -25,7 +25,7 @@ cols = {"ccn": "ccn", "provider_name": "name", "address": "addr", "city": "city"
         "legal_business_name": "legal", "date_first_approved": "since"}
 f = fm[list(cols)].rename(columns=cols)
 recs = [{k: v for k, v in r.items() if v != ""} for r in f.to_dict("records")]
-LIST_KEYS = {"ccn", "name", "city", "st", "zip", "county", "beds", "own", "rating", "adm", "admc", "op", "chain", "mgmt"}
+LIST_KEYS = {"ccn", "name", "city", "st", "zip", "beds", "own", "rating", "adm", "admc", "op", "chain"}
 json.dump([{k: v for k, v in r.items() if k in LIST_KEYS} for r in recs],
           open(os.path.join(web, "facilities.json"), "w"), separators=(",", ":"))
 # full detail split in two files (each stays well under the 16MB page-file limit)
