@@ -1,0 +1,14 @@
+ROUND 2 REVIEW NOTES — October 30, 2026
+
+findings.csv contains 2,505 input records, preserving every input identifier and the required column layout. Totals: 79 gap rows filled and 1,015 open; 522 medium rows confirmed, 20 changed, and 869 unverifiable. The Illinois listing is a complete capture of 4,485 search-result cards but only a partial export of profile fields. It is NOT 4,485 unique current facilities. See illinois_coverage.txt and illinois_source_evidence.zip before using it. Blank profile fields are missing extraction, not necessarily missing from the portal.
+
+Unresolved outcomes reflect the sources and searches used, not proof no other evidence exists. Source dates shown are publication dates where available; otherwise dates viewed. Some older and undated pages require caution. The state summary's best source is representative of sources actually yielding results, rather than an assertion of a complete state roster; states with no verified proposals have blank source fields.
+
+Systematic issues (examples):
+1. Generic STATE_XX provenance in round 2 can mask round 1 facility-site sourcing, risking false independent confirmations. Example 555431; original was operator leadership website.
+2. Title inflation: executive director, CEO, assistant administrator, and owner are not automatically the licensed administrator. Example 225762: Edward Forfa is executive director while Chanel Hayes is named administrator.
+3. Synthetic, extended, or duplicate identifiers appear in the CCN field. Example 245583A and 335287001; identifiers are preserved verbatim and should not be normalized automatically. 225293 and 225293A appear to be duplicate facilities.
+4. State fields can merge administrator with other roles. Example 245470A Minnesota field combines administrator/authorized agent; the named person is also described as a corporate executive, so it was not taken alone as administrator proof.
+5. Facility sources disagree or are undated; avoid assuming a change without a chronology. Example 325042, conflicting administrator names from different sources, left unverifiable.
+6. Illinois portal records include inactive, closed and pre/post ownership-change duplicates. Example facility ID 6012678, linked to 145029, appears under multiple facility names. Review Active status and evidence before ingestion.
+7. Placeholder values can be mistaken for people. Example 355093, 'Administrator Interim'.

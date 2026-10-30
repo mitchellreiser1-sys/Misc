@@ -1,0 +1,29 @@
+ILLINOIS EXPORT — COVERAGE AND LIMITATIONS
+As of October 30, 2026
+Official source: https://llcs.dph.illinois.gov/s/facility-lookup?language=en_US
+
+The export contains all 4,485 search-result cards captured across 450 portal pages:
+• Long Term Care Facility: 3,828 cards (383 pages).
+• Specialized Mental Health Rehabilitation Facility: 23 cards (3 pages).
+• Assisted Living/Shared Housing Establishment: 634 cards (64 pages).
+Saved page totals match the exported counts in each category. These are all three facility-type options observed in the portal; no separate SNF/ICF dropdown options were offered.
+
+This is a complete enumeration of those result cards, NOT a complete administrator export or 4,485 unique currently operating facilities. The portal includes historical/inactive records and indistinguishable duplicate cards. All cards were retained without guessing which historical record represents a current facility.
+
+Profile details populate 577 rows; 563 rows have an administrator name. Those 577 rows contain 448 distinct facility IDs. There are 297 fully identical exported rows. Among profile-populated rows, portal statuses are 441 Active, 121 Inactive - CHOW, 10 Inactive, and 5 Closed. Of the 563 populated administrator names, 430 belong to Active rows and 133 to inactive/closed rows. The required CSV schema has no status field, so use listing_row_evidence.json to distinguish these statuses; do not treat every exported administrator as current.
+
+The other 3,908 rows contain listing-card information only. ZIP, facility ID, administrator, and Medicare number are blank where not captured or not safely joined. Blank values do not mean the portal itself has no value. Twenty-three addresses and 2,621 counties are blank; sampled source cards genuinely omit those fields. License number is blank throughout because no explicitly labeled license-number field was captured; Licensee ID was not relabeled as license number. Medicare numbers retain the portal's published formatting rather than being normalized.
+
+Illinois review reconciliation:
+• il_review.csv contains 441 unchanged input CCNs: 2 GAP_FILLED, 39 GAP_OPEN, 397 CONFIRMED, 2 CHANGED, and 1 UNVERIFIABLE.
+• All 395 high-confidence proposals match explicit administrator names and Active status in saved IDPH profile snapshots. Of these, 364 have a direct matching portal CCN; 31 use a documented facility-identity match because the active portal record's CCN is blank.
+• 392 high-confidence proposals also match administrator-populated rows in il_listing.csv.
+• Three high-confidence confirmations rely on saved Active profile snapshots that could not safely be joined to an indistinguishable result card, so their administrator details are NOT populated in il_listing.csv:
+  145945 — Imboden Creek Senior Living; Facility ID 6012579; Ruth Huber.
+  145386 — Southgate Health Care Center; Facility ID 6008759; Rebekah S Mahoney.
+  146107 — Vi at the Glen; Facility ID 6015689; Sarah Watson.
+  Their profiles appear in parsed_details.json / round1_raw_details.json; review notes explain the CMS name/address/city/ZIP/telephone identity bridge. They must not be represented as confirmations obtained solely from the listing CSV.
+
+The source profile snapshots and listing cards were reviewed separately. Reused profile evidence is distinguished from newly enumerated result cards. The public portal URL plus facility name/ID permits a reader to locate the corresponding record; a stable public per-profile URL was not captured.
+
+Independent QA reopened both Illinois CHANGED sources and selected supplemental confirmations/gap fills. Proposed administrator names and explicit roles were supported; historical cost reports were used as corroboration, not sole proof of present tenure. No raw listing records were modified during QA.

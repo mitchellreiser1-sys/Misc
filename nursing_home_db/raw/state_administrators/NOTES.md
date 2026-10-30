@@ -19,7 +19,7 @@ substitute) and matched to CMS CCNs. Per-state detail, exact re-pull URLs and kn
 | GA | southeast | DCH HFRD GaMap2Care feed | 348/356 | |
 | HI | west | DOH OHCA SNF/ICF list | 43/43 | |
 | ID | west | DHW Bureau of Facility Standards LTC/SNF list PDF | 80/80 | Idaho Code 74-120 notice: not to be used as a mailing/telephone list; contact fields dropped |
-| IL | none | IDPH LLCS licensing portal rejects headless browsers; no other current public source | 0/664 | Pull from a normal browser (listing shows administrator) |
+| IL | illinois | IDPH Licensing portal (LLCS) Facility Lookup, Active records, exported by the external reviewer 2026-10-30 and checked by Claude against CMS address/city per CCN (350 of 380 match) | 371/670 | Inactive, CHOW and closed records excluded; remaining facilities carry round 1 portal names at medium confidence |
 | IN | great_lakes_east | IDOH LTC Facility Directory (QAMIS) | 506/507 | |
 | IA | upper_midwest | DIAL Health Facility Database export | 343/387 | 44 blank at source |
 | KS | plains | KDADS Facilities Directory export | 296/296 | |
@@ -91,3 +91,16 @@ Other review outcomes applied to the build:
 Still open after round 1: NY (about 290 facilities), MA (213), VA (106), MI (66), CO (45), IL (41), NH (31),
 and the smaller states listed in the summary table above. Rhode Island was closed on 2026-10-30 with the
 official licensee extract. Illinois' LLCS listing can still be pulled from a normal browser.
+
+## External review round 2 (2026-10-30)
+
+ChatGPT returned 2,505 findings (`raw/review/chatgpt_round2_findings_2026-10-30.csv`): 79 gaps filled, 20 changed,
+522 medium-confidence names confirmed by a second source, 869 unverifiable, plus a full export of the Illinois
+IDPH licensing portal (4,485 result cards, 563 with an administrator, 439 of those on Active records).
+Claude re-fetched every cited source for the 226 non-Illinois proposals and confirmations
+(`raw/review/claude_recheck_of_chatgpt_round2_2026-10-30.csv`): 178 names found on the cited page, 29 not
+found (not imported), 19 unreachable (imported at medium, labeled unverified). A confirmation found on a second
+independent public source raises that facility's administrator to high confidence. The Illinois export was
+imported as a state file (`illinois.csv`) after address and city checks against the CMS record for each CCN.
+Placeholder entries in the North Dakota association listing ("Interim Administrator" and similar) and one
+Massachusetts executive director mislabeled as administrator were added to `exclusions.csv`.
