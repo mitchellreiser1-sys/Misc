@@ -22,14 +22,14 @@ def main():
     d = pd.read_csv(a.checks, dtype=str, keep_default_na=False)
     rows = []
     for r in d.itertuples(index=False):
-        if r.check not in ("NAME_FOUND", "SKIP_PORTAL"):
+        if r.check not in ("NAME_FOUND", "SKIP_PORTAL", "UNREACHABLE"):
             continue
         host = urllib.parse.urlparse(r.source_url.split(" | ")[0]).netloc
         if r.check == "NAME_FOUND":
             conf = "high" if (host in STATE_AGENCY_HOSTS and r.confidence == "high") else "medium"
             method, note = "ccn_direct", "name confirmed on cited source by Claude re-check"
         else:
-            conf, method, note = "low", "manual", "reported by external review from a portal Claude could not open; not independently verified"
+            conf, method, note = "low", "manual", "reported by external review from a source Claude could not open; not independently verified"
         name = r.proposed_value.strip()
         if "," in name and not re.search(r"\b(JR|SR|II|III)\b", name.upper()):
             last, first = name.split(",", 1); name = f"{first.strip()} {last.strip()}"

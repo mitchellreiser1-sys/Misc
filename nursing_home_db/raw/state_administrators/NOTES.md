@@ -64,3 +64,30 @@ get an administrator where PECOS or the NPI Registry disclose one; see `administ
 facilities table. For DE, IL, MA, NH and RI the state source exists and shows the administrator, but the
 site blocks automated clients; a person with a normal browser can download it and drop it in here
 using the common column layout.
+
+## External review round 1 (2026-10-30)
+
+ChatGPT reviewed the verification sample (407 facilities) and the gap list (2,356 facilities) and returned
+3,983 findings (`raw/review/chatgpt_findings_2026-10-30.csv`). Claude then re-fetched every cited public
+source for the 1,078 administrator proposals that differed from the database and checked that the proposed
+name appears on that page (`raw/review/claude_recheck_of_chatgpt_findings_2026-10-30.csv`):
+
+| Re-check result | Rows | Handling |
+|---|---|---|
+| Name found on the cited source | 529 | Imported. High confidence when the source is a state agency or CMS, otherwise medium (association or facility pages). |
+| Source is a portal Claude cannot open (Illinois IDPH LLCS) | 395 | Imported at medium confidence, labeled "reported by external review; not independently verified". |
+| Source unreachable from this environment (NM and MT association directories, Delaware DHSS PDFs, a few facility sites) | 114 | Imported at medium confidence with the same label. |
+| Name not found on the cited page | 40 | Not imported. Mostly Rhode Island licensee-list rows and a handful of facility pages. |
+
+Other review outcomes applied to the build:
+- Maryland OHCQ "Contact Person" and Nebraska "Assistant Administrator" rows now rank medium, not high.
+- Facilities absent from PECOS now take owners from the Care Compare ownership file and the operator from
+  the Care Compare legal business name (`owner_data_source` and `operator_source` say which).
+- Michigan CCN 235050 (Dana White) removed: the LARA letter belonged to a different license (`exclusions.csv`).
+- Proposals that were corporate officers, assistant administrators, deceased individuals, or placeholder
+  web-template names were rejected by the reviewer and are not in the database.
+- Illinois "Owners" as an operator name was a portal parse error and was not imported.
+
+Still open after round 1: NY (328 facilities), MA (220), VA (129), CO (47), IL (43), MI (65), NH (31),
+and the smaller states listed in the summary table above. Rhode Island's licensee list and Illinois' LLCS
+listing can both be pulled from a normal browser and dropped in using the common column layout.
