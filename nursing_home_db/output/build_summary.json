@@ -1,16 +1,16 @@
 {
   "facilities": 14881,
-  "facilities_with_admin_name": 13258,
+  "facilities_with_admin_name": 14016,
   "admin_by_confidence": {
-    "high": 12525,
-    "none": 1623,
-    "low": 396,
-    "medium": 337
+    "high": 12330,
+    "medium": 1428,
+    "none": 865,
+    "low": 258
   },
-  "people_roles": 551887,
-  "unique_people": 54985,
+  "people_roles": 552924,
+  "unique_people": 55480,
   "unique_orgs": 16095,
-  "facilities_with_any_individual_owner": 7722,
+  "facilities_with_any_individual_owner": 7829,
   "facilities_with_management_company": 3819,
   "state_sources": [
     {
@@ -32,6 +32,11 @@
       "file": "plains.csv",
       "rows_loaded": 1109,
       "rows_in_file": 1139
+    },
+    {
+      "file": "review_2026-10-30.csv",
+      "rows_loaded": 1038,
+      "rows_in_file": 1038
     },
     {
       "file": "south_central.csv",

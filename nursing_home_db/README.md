@@ -17,13 +17,13 @@ The purpose is a quick "do I know anyone connected to this facility?" lookup:
 * `people_roles.csv.gz` / `nursing_homes.sqlite.gz` table `people_roles`: the full long table, every
   person and organization disclosed for every facility (about 500k rows).
 
-## Current build (2026-10-30)
+## Current build (2026-10-30, after external review round 1)
 
 | Measure | Count |
 |---|---|
 | Facilities (CCNs) | 14,881 |
-| Facilities with an administrator name | 13,258 (89%) |
-| of which high confidence | 12,525 |
+| Facilities with an administrator name | 14,016 (94%) |
+| of which high confidence | 12,330 (medium 1,428, low 258) |
 | Disclosed person/organization roles | 551,887 |
 | Unique people | 54,985 |
 | Unique organizations | 16,095 |
