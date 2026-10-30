@@ -1,0 +1,5 @@
+# Raw source downloads are large and re-creatable with scripts/download_cms.py
+raw/*.csv
+raw/*.jsonl
+raw/*.zip
+!raw/state_administrators/
