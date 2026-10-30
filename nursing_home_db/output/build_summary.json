@@ -1,18 +1,23 @@
 {
   "facilities": 14881,
-  "facilities_with_admin_name": 14076,
+  "facilities_with_admin_name": 14108,
   "admin_by_confidence": {
-    "high": 12823,
-    "medium": 1017,
-    "none": 805,
-    "low": 236
+    "high": 12915,
+    "medium": 965,
+    "none": 773,
+    "low": 228
   },
-  "people_roles": 553541,
-  "unique_people": 55535,
+  "people_roles": 553657,
+  "unique_people": 55569,
   "unique_orgs": 16095,
   "facilities_with_any_individual_owner": 7829,
   "facilities_with_management_company": 3819,
   "state_sources": [
+    {
+      "file": "delaware.csv",
+      "rows_loaded": 44,
+      "rows_in_file": 47
+    },
     {
       "file": "great_lakes_east.csv",
       "rows_loaded": 2087,
@@ -27,6 +32,11 @@
       "file": "mid_atlantic.csv",
       "rows_loaded": 1231,
       "rows_in_file": 1256
+    },
+    {
+      "file": "new_hampshire.csv",
+      "rows_loaded": 72,
+      "rows_in_file": 79
     },
     {
       "file": "northeast.csv",
