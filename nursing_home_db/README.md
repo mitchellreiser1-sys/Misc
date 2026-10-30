@@ -17,19 +17,19 @@ The purpose is a quick "do I know anyone connected to this facility?" lookup:
 * `people_roles.csv.gz` / `nursing_homes.sqlite.gz` table `people_roles`: the full long table, every
   person and organization disclosed for every facility (about 500k rows).
 
-## Current build (2026-10-30, after external review rounds 1 to 3 state exports)
+## Current build (2026-10-30, after external review rounds 1 to 3)
 
 | Measure | Count |
 |---|---|
 | Facilities (CCNs) | 14,881 |
-| Facilities with an administrator name | 14,108 (95%) |
-| of which high confidence | 12,915 (medium 965, low 228) |
+| Facilities with an administrator name | 14,216 (96%) |
+| of which high confidence | 13,055 (medium 956, low 205) |
 | Disclosed person/organization roles | 551,887 |
 | Unique people | 54,985 |
 | Unique organizations | 16,095 |
-| States with a state-directory administrator source | 42 plus DC |
+| States with a state-directory administrator source | 43 plus DC |
 
-States without a usable state source (administrator comes from PECOS/NPPES only): AK, CO, MA, MT, NM, NY, VA, PR, GU. See `raw/state_administrators/NOTES.md` for the per-state picture and how to
+States without a usable state source (administrator comes from PECOS/NPPES only): AK, MA, MT, NM, NY, VA, PR, GU. See `raw/state_administrators/NOTES.md` for the per-state picture and how to
 close those gaps with a normal browser.
 
 ## Outputs (`output/`)
