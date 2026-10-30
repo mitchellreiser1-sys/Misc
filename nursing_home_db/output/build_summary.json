@@ -1,16 +1,57 @@
 {
   "facilities": 14881,
-  "facilities_with_admin_name": 6265,
+  "facilities_with_admin_name": 13258,
   "admin_by_confidence": {
-    "none": 8616,
-    "high": 3817,
-    "low": 1762,
-    "medium": 686
+    "high": 12525,
+    "none": 1623,
+    "low": 396,
+    "medium": 337
   },
-  "people_roles": 536725,
-  "unique_people": 49676,
+  "people_roles": 551887,
+  "unique_people": 54985,
   "unique_orgs": 16095,
   "facilities_with_any_individual_owner": 7722,
   "facilities_with_management_company": 3819,
-  "state_sources": []
+  "state_sources": [
+    {
+      "file": "great_lakes_east.csv",
+      "rows_loaded": 2087,
+      "rows_in_file": 2284
+    },
+    {
+      "file": "mid_atlantic.csv",
+      "rows_loaded": 1231,
+      "rows_in_file": 1256
+    },
+    {
+      "file": "northeast.csv",
+      "rows_loaded": 271,
+      "rows_in_file": 295
+    },
+    {
+      "file": "plains.csv",
+      "rows_loaded": 1109,
+      "rows_in_file": 1139
+    },
+    {
+      "file": "south_central.csv",
+      "rows_loaded": 2136,
+      "rows_in_file": 2189
+    },
+    {
+      "file": "southeast.csv",
+      "rows_loaded": 2146,
+      "rows_in_file": 2222
+    },
+    {
+      "file": "upper_midwest.csv",
+      "rows_loaded": 1002,
+      "rows_in_file": 1062
+    },
+    {
+      "file": "west.csv",
+      "rows_loaded": 1859,
+      "rows_in_file": 2205
+    }
+  ]
 }
