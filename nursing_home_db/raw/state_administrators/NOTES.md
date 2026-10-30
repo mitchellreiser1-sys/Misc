@@ -14,7 +14,7 @@ substitute) and matched to CMS CCNs. Per-state detail, exact re-pull URLs and kn
 | CO | west | CDPHE Find & Compare export | 0/210 | State export has no administrator field |
 | CT | northeast | DSS Medicaid cost reports FY2025, page 1 "Printed Name (Administrator)" | 160/191 | 8 to 12 months old; private-pay CCRCs file no report |
 | DC | mid_atlantic | DC Health HRLA Nursing Home Directory PDF | 16/16 | |
-| DE | none | DHCQ list no longer shows administrators; prior PDF moved and server blocks non-browser clients | 0/44 | Pull from a normal browser |
+| DE | delaware | DHSS DHCQ Licensed Nursing Homes list (updated 9/26/25), Wayback Machine copy exported by the external reviewer 2026-10-30 | 44/46 | Administrator / Executive Director column with emails; a year old, so treat as as-of September 2025 |
 | FL | southeast | AHCA FloridaHealthFinder facility profiles | 684/694 | Hospital SNUs blank at source |
 | GA | southeast | DCH HFRD GaMap2Care feed | 348/356 | |
 | HI | west | DOH OHCA SNF/ICF list | 43/43 | |
@@ -35,7 +35,7 @@ substitute) and matched to CMS CCNs. Per-state detail, exact re-pull URLs and kn
 | MT | none | mt-reports.com portal uses an anti-bot form; not pursued | 0/61 | Pull from a normal browser |
 | NE | plains | DHHS Licensure Unit LTC roster PDF | 180/180 | 5 list only an Assistant Administrator |
 | NV | west | HCQC facility search (Primary Contact = Administrator) | 58/66 | Hospital-based units excluded |
-| NH | none | dhhs.nh.gov licensed facilities PDF blocked (403) | 0/73 | PDF has an administrator column; pull from a normal browser |
+| NH | new_hampshire | DHHS Health Facilities Administration licensed facilities list (licensedfacilities.pdf), exported by the external reviewer 2026-10-30 | 72/76 | Nursing Home license type; 4 key facilities not on the list (Glencliff Home, Oceanside, Golden View, Rochester Manor) |
 | NJ | mid_atlantic | NJ DOH Health Facilities Search detail pages | 340/348 | |
 | NM | none | HCA Health Facility Provider Search is down (404) | 0/68 | |
 | NY | none | No public administrator-by-facility dataset found | 0/592 | |
@@ -88,9 +88,8 @@ Other review outcomes applied to the build:
   web-template names were rejected by the reviewer and are not in the database.
 - Illinois "Owners" as an operator name was a portal parse error and was not imported.
 
-Still open after round 1: NY (about 290 facilities), MA (213), VA (106), MI (66), CO (45), IL (41), NH (31),
-and the smaller states listed in the summary table above. Rhode Island was closed on 2026-10-30 with the
-official licensee extract. Illinois' LLCS listing can still be pulled from a normal browser.
+After rounds 1 to 3 the open gaps are mainly NY, MA, VA, MI, CA and CO. Rhode Island, Illinois, Delaware and
+New Hampshire were closed on 2026-10-30 with state listings (RI by the user, IL/DE/NH exported by the external reviewer).
 
 ## External review round 2 (2026-10-30)
 
