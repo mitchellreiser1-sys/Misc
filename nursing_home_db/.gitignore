@@ -3,3 +3,6 @@ raw/*.csv
 raw/*.jsonl
 raw/*.zip
 !raw/state_administrators/
+# Uncompressed outputs exceed GitHub's file size limit; the .gz copies are committed
+output/nursing_homes.sqlite
+output/people_roles.csv

@@ -14,7 +14,7 @@ The purpose is a quick "do I know anyone connected to this facility?" lookup:
   all owner / operator fields side by side.
 * **Owners_Operators**: facility-level owner and operator roll-up.
 * **Administrators**: best administrator per facility plus the other candidates found.
-* `people_roles.csv` / `nursing_homes.sqlite` table `people_roles`: the full long table, every
+* `people_roles.csv.gz` / `nursing_homes.sqlite.gz` table `people_roles`: the full long table, every
   person and organization disclosed for every facility (about 500k rows).
 
 ## Outputs (`output/`)
@@ -22,11 +22,11 @@ The purpose is a quick "do I know anyone connected to this facility?" lookup:
 | File | Contents |
 |---|---|
 | `nursing_homes.xlsx` | Excel workbook: Facilities, Administrators, Owners_Operators, People_Index, Organization_Index |
-| `nursing_homes.sqlite` | Same tables plus `people_roles`, `administrator_candidates`, `source_manifest`, indexed on name and CCN |
+| `nursing_homes.sqlite.gz` | Same tables plus `people_roles`, `administrator_candidates`, `source_manifest`, indexed on name and CCN |
 | `facilities_master.csv` | One row per CCN |
 | `administrators.csv` / `administrator_candidates.csv` | Best administrator per facility, and every candidate |
 | `owners_operators.csv` | Facility-level owner / operator / lender roll-up |
-| `people_roles.csv` | Long table, one row per person-or-org x facility x source |
+| `people_roles.csv.gz` | Long table, one row per person-or-org x facility x source |
 | `people_index.csv` / `organization_index.csv` | Unique-name lookups |
 | `build_summary.json` | Row counts and coverage from the last build |
 

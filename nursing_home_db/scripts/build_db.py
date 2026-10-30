@@ -435,7 +435,7 @@ def main():
     admins.to_csv(os.path.join(out, "administrators.csv"), index=False)
     cand.drop(columns=["_date"]).to_csv(os.path.join(out, "administrator_candidates.csv"), index=False)
     oo.to_csv(os.path.join(out, "owners_operators.csv"), index=False)
-    people.to_csv(os.path.join(out, "people_roles.csv"), index=False)
+    people.to_csv(os.path.join(out, "people_roles.csv.gz"), index=False, compression="gzip")
     people_index.to_csv(os.path.join(out, "people_index.csv"), index=False)
     org_index.to_csv(os.path.join(out, "organization_index.csv"), index=False)
 
@@ -459,6 +459,9 @@ def main():
         CREATE INDEX ix_fac_name ON facilities(provider_name);
     """)
     con.commit(); con.close()
+    import gzip, shutil
+    with open(dbp, "rb") as fi, gzip.open(dbp + ".gz", "wb") as fo:
+        shutil.copyfileobj(fi, fo)
 
     with pd.ExcelWriter(os.path.join(out, "nursing_homes.xlsx"), engine="openpyxl") as xw:
         fm.to_excel(xw, sheet_name="Facilities", index=False)
@@ -467,7 +470,7 @@ def main():
         people_index.to_excel(xw, sheet_name="People_Index", index=False)
         org_index.to_excel(xw, sheet_name="Organization_Index", index=False)
         pd.DataFrame({"note": [
-            "People_Roles (every disclosed person/org per facility, ~500k rows) is in people_roles.csv and nursing_homes.sqlite.",
+            "People_Roles (every disclosed person/org per facility, ~500k rows) is in people_roles.csv.gz and nursing_homes.sqlite (gunzip nursing_homes.sqlite.gz).",
             "Use People_Index to search a name: it lists every facility where that person is disclosed in any role.",
             "administrator_confidence: high = state directory or PECOS/NPPES title says Administrator; medium = NPI authorized official titled administrator; low = managing employee with no title; none = no candidate.",
         ]}).to_excel(xw, sheet_name="README", index=False)

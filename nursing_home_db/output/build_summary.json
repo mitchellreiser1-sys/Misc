@@ -1,0 +1,16 @@
+{
+  "facilities": 14881,
+  "facilities_with_admin_name": 6265,
+  "admin_by_confidence": {
+    "none": 8616,
+    "high": 3817,
+    "low": 1762,
+    "medium": 686
+  },
+  "people_roles": 536725,
+  "unique_people": 49676,
+  "unique_orgs": 16095,
+  "facilities_with_any_individual_owner": 7722,
+  "facilities_with_management_company": 3819,
+  "state_sources": []
+}
