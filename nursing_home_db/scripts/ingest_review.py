@@ -12,7 +12,9 @@ import argparse, pandas as pd, re, urllib.parse
 STATE_AGENCY_HOSTS = ("llcs.dph.illinois.gov", "dia-hfd.iowa.gov", "vita-vdh.my.site.com", "apps.health.pa.gov", "datahealth.ri.gov",
                       "dhss.delaware.gov", "azcarecheck.azdhs.gov", "ltclicensing.oregon.gov", "www.michigan.gov", "www.nj.gov",
                       "portal.ct.gov", "www.cms.gov", "health.hawaii.gov", "dhhs.ne.gov", "healthapps.nj.gov", "nvdpbh.aithent.com",
-                      "publicapps.odh.ohio.gov", "ohflac.wvdhhr.org", "fortress.wa.gov", "apps.hhs.texas.gov", "gateway.maine.gov")
+                      "publicapps.odh.ohio.gov", "ohflac.wvdhhr.org", "fortress.wa.gov", "apps.hhs.texas.gov", "gateway.maine.gov",
+                      "cohealthviz.dphe.state.co.us", "doh.sd.gov", "dlp.vermont.gov", "statelicensing.apps.lara.state.mi.us", "www.nj.gov",
+                      "healthweb-back.health.ny.gov", "mgaleg.maryland.gov", "health.ri.gov", "datahealth.ri.gov")
 
 
 def main():

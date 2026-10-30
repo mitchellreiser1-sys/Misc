@@ -103,3 +103,15 @@ independent public source raises that facility's administrator to high confidenc
 imported as a state file (`illinois.csv`) after address and city checks against the CMS record for each CCN.
 Placeholder entries in the North Dakota association listing ("Interim Administrator" and similar) and one
 Massachusetts executive director mislabeled as administrator were added to `exclusions.csv`.
+
+## External review round 3 (2026-10-30)
+
+ChatGPT returned 2,058 findings (`raw/review/chatgpt_round3_findings_2026-10-30.csv`): 162 gaps filled, 76 changed,
+66 confirmed, 875 unverifiable, plus full exports of the New Hampshire DHHS licensed facilities list and the
+Delaware DHCQ nursing home list, which were imported as state files (`new_hampshire.csv`, `delaware.csv`).
+Claude re-fetched every cited source for the 304 proposals (`raw/review/claude_recheck_of_chatgpt_round3_2026-10-30.csv`):
+239 names found on the cited page, 11 not found (not imported; mostly South Dakota survey PDFs whose text could not
+be read), 26 unreachable (imported at medium, labeled), 27 Illinois portal records (imported at medium).
+Colorado was the main gain: CDPHE's "Facility's List of Inspections and Occurrences" PDFs name the administrator for
+each licensed facility, and 118 of 119 Colorado proposals were confirmed directly against those PDFs, replacing the
+trade-association names used earlier. These are state-agency records and rank high.

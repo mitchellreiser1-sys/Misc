@@ -1,0 +1,18 @@
+ROUND 3 REVIEW — 2026-10-30
+
+Deliverables: findings.csv has 2,058 input records, the exact requested 11-column layout, each original CCN preserved as text; state_summary.csv provides 45-state counts, source types, URLs, and source limitations. Results: 162 GAP_FILLED, 879 GAP_OPEN; 66 CONFIRMED, 76 CHANGED, 875 UNVERIFIABLE. Blank proposals use confidence none. A search-level unresolved result is not proof there is no additional public evidence. 2025 historical snapshots do not themselves prove current incumbency, and viewing dates do not prove dates of appointment. Recheck every cited source before mechanically importing.
+
+NH export: 989 rows across 33 pages, official roster dated 2025-12-02 from a public archive; 79 listed as Nursing Home, repeated license IDs preserved as published. DE export: 47 rows across 3 pages, dated 2025-09-26; its column heading combines Administrator / Executive Director (ED), so the name alone does not establish which role was held. Both files were delivered separately earlier.
+
+Coverage limitations: All input rows were incorporated and received targeted research or a specific source-access review; many only received a limited search, not full document-by-document verification. NY: official profile pages blocked, RHCF 2024 dataset historical with ambiguous corporate contact/signatory roles; individual county/state/association and fallback site searches used. MA: individual CHIA cost reports unexamined because the current CHIA site requires a public records request; Mass.gov appeal files frequently returned 403. VA: applications and 17 survey documents checked; recent surveys often anonymize staff. CA: Cal Health Find home/detail endpoints returned remote connection failure. MD: 169 facility metadata profiles mapped but 260 survey objects returned AccessDenied; not treated as clean findings. MT/ND: two requested directory downloads were stopped after auto-review denial and a sandbox startup failure; genuinely distinct other sources were searched without reattempting the blocked resources. These limits are not negative results.
+
+Colorado: 124 CDPHE facility PDFs obtained and identity/administrator field checked, but their Oct 30 snapshot generation date is not an appointment/update date. Inconsistent roster names should be independently checked for current tenure before ingestion. One known contradictory Bear Creek entry was withheld.
+
+Systematic examples:
+- NY RHCF class0 entries can identify corporate/signatory roles: Linda DeHart associated with multiple H+H facilities but is VP Finance (e.g. 335461). No bulk import of ambiguous role fields.
+- Role conflation: 285246 Nebraska state roster labels the input individual Assistant Administrator, not Administrator; also 345192 has Director/LNHA without a clearly established administrator assignment.
+- Conflicting current site content: 335609 Crown Heights site names two people under Administrator; withheld rather than choose.
+- Facility identifier duplicates/aliases: e.g. 335438 and 335438001, 225293 and 225293A; preserve the original input IDs and do not assume each is a separate facility.
+- Colorado discrepancy: 065373 state snapshot lists George Langston as administrator while a 2025 directory lists him as social services director and identifies a different NHA; withheld.
+- Same-source provenance: some prior input labels hide facility-site or association evidence; reusing the same underlying source is not an independent confirmation (e.g. 495092 and 335628).
+- Aging source conflict: 325092 2025 filing and 2026 newsletter give different roles; no current administrator inferred.
