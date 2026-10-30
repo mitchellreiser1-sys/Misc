@@ -45,9 +45,10 @@ The purpose is a quick "do I know anyone connected to this facility?" lookup:
 
 `administrator_confidence` on each facility:
 
-1. **high**: a state licensing directory names the administrator, or a PECOS disclosure for that facility
-   carries a title containing "Administrator" (most recent association date wins).
-2. **medium**: the NPI Registry authorized official for the facility is titled Administrator.
+1. **high**: a state licensing directory names the administrator (or licensee contact person), or a PECOS
+   disclosure for that facility carries a title containing "Administrator" (most recent association date wins).
+2. **medium**: a state directory contact published with a non-administrator title (for example President/CEO
+   at a hospital-attached unit), or the NPI Registry authorized official for the facility is titled Administrator.
 3. **low**: a W-2 or contracted managing employee is disclosed with no title (commonly, but not always, the administrator).
 4. **none**: no candidate in any source. Other names found are listed in `other_candidates`.
 

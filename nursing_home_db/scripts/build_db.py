@@ -317,14 +317,16 @@ def main():
     persons = people[people["party_type"] == "Person"]
     for r in persons.itertuples(index=False):
         src, role, title = r.source, r.role, r.title
-        if src.startswith("STATE_"):
-            tier, basis = 1, "State licensing directory lists this person as administrator"
+        if src.startswith("STATE_") and (not title or is_admin_title(title) or title.upper().startswith("CONTACT PERSON")):
+            tier, basis = 1, f"State licensing directory lists this person as '{title or 'Administrator'}'"
         elif src == "PECOS" and is_admin_title(title):
             tier, basis = 2, f"PECOS disclosure title '{title}' ({role})"
+        elif src.startswith("STATE_"):
+            tier, basis = 3, f"State licensing directory contact with non-administrator title '{title}'"
         elif src == "NPPES" and is_admin_title(title):
-            tier, basis = 3, f"NPI Registry authorized official, title '{title}'"
+            tier, basis = 4, f"NPI Registry authorized official, title '{title}'"
         elif src in ("PECOS", "CARE_COMPARE") and role in MGMT_ROLES and not title:
-            tier, basis = 4, f"{role} with no title disclosed (often the administrator, unverified)"
+            tier, basis = 5, f"{role} with no title disclosed (often the administrator, unverified)"
         elif src == "PECOS" and role in MGMT_ROLES and title:
             continue  # managing employee with a non-admin title (DON, CFO, etc.)
         else:
@@ -338,7 +340,7 @@ def main():
     # collapse duplicates of the same person for the same facility, keep best tier
     cand = cand.drop_duplicates(["ccn", "name_key"], keep="first")
     best = cand.drop_duplicates("ccn", keep="first").copy()
-    best["confidence"] = best["tier"].map({1: "high", 2: "high", 3: "medium", 4: "low"})
+    best["confidence"] = best["tier"].map({1: "high", 2: "high", 3: "medium", 4: "medium", 5: "low"})
     best["other_candidates"] = best["ccn"].map(
         cand.groupby("ccn").apply(lambda g: "; ".join(f"{a} [{s}]" for a, s in zip(g["administrator_name"].iloc[1:], g["source"].iloc[1:])))
     ).fillna("")
@@ -472,7 +474,7 @@ def main():
         pd.DataFrame({"note": [
             "People_Roles (every disclosed person/org per facility, ~500k rows) is in people_roles.csv.gz and nursing_homes.sqlite (gunzip nursing_homes.sqlite.gz).",
             "Use People_Index to search a name: it lists every facility where that person is disclosed in any role.",
-            "administrator_confidence: high = state directory or PECOS/NPPES title says Administrator; medium = NPI authorized official titled administrator; low = managing employee with no title; none = no candidate.",
+            "administrator_confidence: high = state directory or PECOS title says Administrator; medium = state directory contact with another title, or NPI authorized official titled administrator; low = managing employee with no title; none = no candidate.",
         ]}).to_excel(xw, sheet_name="README", index=False)
 
     # summary
