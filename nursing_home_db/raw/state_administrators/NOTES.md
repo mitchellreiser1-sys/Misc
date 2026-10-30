@@ -45,7 +45,7 @@ substitute) and matched to CMS CCNs. Per-state detail, exact re-pull URLs and kn
 | OK | south_central | OSDH Directory of Facilities PDFs | 283/283 | |
 | OR | west | ODHS ltclicensing provider pages | 125/128 | |
 | PA | mid_atlantic | PA DOH open data "Nursing Homes Current Statewide Health" (Contact Executive) | 654/656 | 49 contacts carry non-administrator titles |
-| RI | none | health.ri.gov Cloudflare challenge | 0/72 | Licensee list has Owner/Manager Name; pull from a normal browser |
+| RI | rhode_island | RIDOH licensee list extract (Nursing Facility), downloaded from datahealth.ri.gov by the user 2026-10-30 | 69/72 | Owner/Manager Name column carries the administrator; 2 key facilities absent from the extract (Scandinavian Home, Kingston Center) |
 | SC | southeast | SC DPH Health Facilities ArcGIS layer | 183/187 | |
 | SD | plains | DOH Board of NFA licensee roster matched by facility phone | 69/96 | Medium/low; state directory is reCAPTCHA-gated |
 | TN | southeast | TN Health Care Facilities search | 303/303 | |
@@ -88,6 +88,6 @@ Other review outcomes applied to the build:
   web-template names were rejected by the reviewer and are not in the database.
 - Illinois "Owners" as an operator name was a portal parse error and was not imported.
 
-Still open after round 1: NY (328 facilities), MA (220), VA (129), CO (47), IL (43), MI (65), NH (31),
-and the smaller states listed in the summary table above. Rhode Island's licensee list and Illinois' LLCS
-listing can both be pulled from a normal browser and dropped in using the common column layout.
+Still open after round 1: NY (about 290 facilities), MA (213), VA (106), MI (66), CO (45), IL (41), NH (31),
+and the smaller states listed in the summary table above. Rhode Island was closed on 2026-10-30 with the
+official licensee extract. Illinois' LLCS listing can still be pulled from a normal browser.
