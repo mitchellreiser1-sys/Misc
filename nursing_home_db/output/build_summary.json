@@ -1,14 +1,14 @@
 {
   "facilities": 14881,
-  "facilities_with_admin_name": 14016,
+  "facilities_with_admin_name": 14040,
   "admin_by_confidence": {
-    "high": 12330,
-    "medium": 1428,
-    "none": 865,
-    "low": 258
+    "high": 12376,
+    "medium": 1411,
+    "none": 841,
+    "low": 253
   },
-  "people_roles": 552924,
-  "unique_people": 55480,
+  "people_roles": 552993,
+  "unique_people": 55501,
   "unique_orgs": 16095,
   "facilities_with_any_individual_owner": 7829,
   "facilities_with_management_company": 3819,
@@ -37,6 +37,11 @@
       "file": "review_2026-10-30.csv",
       "rows_loaded": 1038,
       "rows_in_file": 1038
+    },
+    {
+      "file": "rhode_island.csv",
+      "rows_loaded": 69,
+      "rows_in_file": 75
     },
     {
       "file": "south_central.csv",
