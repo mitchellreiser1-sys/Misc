@@ -875,7 +875,7 @@
       ['Repeat citation tags', (f.repeat || []).join(', ')],
       ['Fines, last 3 years', P.fines], ['Fine dollars, last 3 years', P.fine_total], ['Payment denials, last 3 years', P.denials],
       ['Total weighted health survey score', sv.weighted],
-      ['Regulatory screening score (not a CMS figure)', f.risk.score], ['Screening score review tier', f.risk.tier], ['Screening score national percentile', f.risk.pct_us], ['Screening score state percentile', f.risk.pct_state]
+      ['Regulatory screening score (not a CMS figure)', f.risk.score], ['Screening score risk tier', f.risk.tier], ['Screening score national percentile', f.risk.pct_us], ['Screening score state percentile', f.risk.pct_state]
     ];
     if (f.pbj) summary.push(['Contract staff share of nurse hours (derived, ' + L.pbj.quarter + ')', Math.round(f.pbj.contract_share * 10000) / 10000], ['Days with no RN hours reported (' + L.pbj.quarter + ')', f.pbj.zero_rn_days]);
     if (f.vbp) summary.push(['FY ' + L.vbp_fy + ' VBP incentive payment multiplier', f.vbp.multiplier], ['FY ' + L.vbp_fy + ' VBP performance score', f.vbp.score], ['FY ' + L.vbp_fy + ' VBP national ranking', f.vbp.ranking]);
@@ -1200,7 +1200,7 @@
         (V.prior_versions || []).map(function (pv) { return '<div class="tile"><div class="k">Earlier rules (' + esc(pv.name) + ')</div><div class="v">' + pc(pv.pooled_auc, 0) + '</div><div class="s">The same test on an earlier set of scoring rules.</div></div>'; }).join('') +
         '</div></div>';
 
-      h += '<div class="card"><h2>Review tiers</h2><p class="muted" style="margin-top:0">Tiers say how closely to look, not whether a facility is acceptable. Even in the highest tier, most facilities had no serious event in the following year.</p><div class="scroll"><table><thead><tr><th>Tier</th><th>Score</th>' +
+      h += '<div class="card"><h2>Risk tiers</h2><p class="muted" style="margin-top:0">Tiers describe regulatory risk relative to other facilities. They say how closely to look, not whether a facility is acceptable. Even in the Very High Risk tier, most facilities had no serious event in the following year.</p><div class="scroll"><table><thead><tr><th>Tier</th><th>Score</th>' +
         V.years.map(function (y) { return '<th class="n">Scored ' + fdate(y.as_of) + '</th>'; }).join('') + '</tr></thead><tbody>' +
         V.years[0].tiers.map(function (t, i) {
           return '<tr><td><span class="chip tier t' + i + '">' + esc(t[0]) + '</span></td><td>' + t[1] + (t[2] >= 100 ? ' and up' : ' to ' + t[2]) + '</td>' + V.years.map(function (y) { return '<td class="n"><span class="strong">' + pc(y.tiers[i][4]) + '</span> <span class="muted small">of ' + y.tiers[i][3].toLocaleString() + '</span></td>'; }).join('') + '</tr>';

@@ -15,28 +15,28 @@
    "bottom20_rate": 0.05215035557060616,
    "tiers": [
     [
-     "Low",
+     "Low Risk",
      0,
      14,
      5023,
      0.06251244276328888
     ],
     [
-     "Moderate",
+     "Moderate Risk",
      15,
      29,
      5394,
      0.12235817575083426
     ],
     [
-     "Elevated",
+     "Elevated Risk",
      30,
      44,
      2677,
      0.20694807620470676
     ],
     [
-     "Review recommended",
+     "Very High Risk",
      45,
      100,
      1674,
@@ -100,28 +100,28 @@
    "bottom20_rate": 0.052452316076294275,
    "tiers": [
     [
-     "Low",
+     "Low Risk",
      0,
      14,
      5380,
      0.05985130111524164
     ],
     [
-     "Moderate",
+     "Moderate Risk",
      15,
      29,
      5017,
      0.13533984452860276
     ],
     [
-     "Elevated",
+     "Elevated Risk",
      30,
      44,
      2518,
      0.19737887212073074
     ],
     [
-     "Review recommended",
+     "Very High Risk",
      45,
      100,
      1767,
@@ -185,28 +185,28 @@
    "bottom20_rate": 0.044725162171389554,
    "tiers": [
     [
-     "Low",
+     "Low Risk",
      0,
      14,
      5794,
      0.0555747324818778
     ],
     [
-     "Moderate",
+     "Moderate Risk",
      15,
      29,
      4754,
      0.09718132099284812
     ],
     [
-     "Elevated",
+     "Elevated Risk",
      30,
      44,
      2481,
      0.15437323659814592
     ],
     [
-     "Review recommended",
+     "Very High Risk",
      45,
      100,
      1616,

@@ -40,8 +40,8 @@ COMPONENTS = [
     ("rn", "RN coverage", "1 point when any day in the quarter had no RN hours reported", 1),
 ]
 
-# Review tiers. Labels describe what to do, not a verdict on the facility.
-TIERS = [(0, 14, "Low"), (15, 29, "Moderate"), (30, 44, "Elevated"), (45, 100, "Review recommended")]
+# Tiers of regulatory risk, set from the validation study.
+TIERS = [(0, 14, "Low Risk"), (15, 29, "Moderate Risk"), (30, 44, "Elevated Risk"), (45, 100, "Very High Risk")]
 
 
 def tier(total):

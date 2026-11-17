@@ -209,7 +209,8 @@ class Risk(unittest.TestCase):
 
     def test_tiers(self):
         self.assertEqual([risk.tier(s) for s in (0, 14, 15, 29, 30, 44, 45, 100)],
-                         ["Low", "Low", "Moderate", "Moderate", "Elevated", "Elevated", "Review recommended", "Review recommended"])
+                         ["Low Risk", "Low Risk", "Moderate Risk", "Moderate Risk", "Elevated Risk", "Elevated Risk",
+                          "Very High Risk", "Very High Risk"])
 
     def test_every_component_is_documented(self):
         self.assertEqual({c[0] for c in risk.COMPONENTS}, set(risk.score()[1]))
