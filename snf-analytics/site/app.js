@@ -174,9 +174,7 @@
     var L = S.lookups, bs = L.benchmarks[f.state] || { staffing: {}, qm: {}, ratings: {} }, bn = L.benchmarks.NATION;
     var asof = fdate(S.manifest.processing_date);
     var src = function (file) { return '<p class="src">Source: CMS ' + esc(file) + ', processing date ' + asof + '.</p>'; };
-    var h = '<a class="back" href="#/">← Back to search</a> <span style="float:right" class="controls">' +
-      '<span id="addmsg" class="muted small" style="align-self:center"></span><select id="addsel" aria-label="Portfolio to add to">' + pfOptions(S.target) + '</select><button id="addbtn">Add to portfolio</button>' +
-      '<button onclick="window.print()">Print or save as PDF</button></span>';
+    var R = f.ratings, D = f.deficiencies, P = f.penalties, sv = f.survey;
 
     /* header */
     var chips = [];
@@ -189,34 +187,56 @@
     if (f.high_performing) chips.push(['good', 'High performing icon']);
     if (f.in_hospital) chips.push(['', 'Resides in hospital']);
     if (f.ccrc) chips.push(['', 'Continuing care retirement community']);
-    h += '<div class="card" style="clear:both"><h1>' + esc(f.name) + '</h1><div class="muted">CCN ' + esc(f.ccn) + ' · ' + esc(f.address) + ', ' + esc(f.city) + ', ' +
-      esc(f.state) + ' ' + esc(f.zip) + (f.county ? ' · ' + esc(f.county) + ' County' : '') + '</div>' +
-      '<div class="muted small" style="margin-top:6px">' + [f.ownership_type, f.provider_type,
-        f.urban == null ? null : (f.urban ? 'Urban' : 'Rural'),
-        f.certified ? 'Certified ' + fdate(f.certified) : null,
-        f.legal_name && f.legal_name !== f.name ? 'Legal name: ' + f.legal_name : null,
-        f.chain ? null : 'No chain reported'
-      ].filter(Boolean).map(esc).join(' · ') +
-      (f.chain ? ' · Chain: <a href="#/chain/' + esc(f.chain.id) + '">' + esc(f.chain.name) + '</a>' + (f.chain.count ? ' (' + esc(f.chain.count) + ' facilities)' : '') : '') + '</div>' +
-      (chips.length ? '<div class="chips">' + chips.map(function (c) { return '<span class="chip ' + c[0] + '">' + esc(c[1]) + '</span>'; }).join('') + '</div>' : '') +
-      '</div>';
+    var facts = [
+      ['Ownership type', f.ownership_type], ['Participation', f.provider_type],
+      ['Setting', f.urban == null ? null : (f.urban ? 'Urban' : 'Rural')],
+      ['Certified since', f.certified ? fdate(f.certified) : null],
+      ['Legal name', f.legal_name && f.legal_name !== f.name ? f.legal_name : null]
+    ].filter(function (x) { return x[1]; }).map(function (x) { return '<div><dt>' + x[0] + '</dt><dd>' + esc(x[1]) + '</dd></div>'; }).join('') +
+      '<div><dt>Chain</dt><dd>' + (f.chain ? '<a href="#/chain/' + esc(f.chain.id) + '">' + esc(f.chain.name) + '</a>' + (f.chain.count ? ' <span class="muted">(' + esc(f.chain.count) + ' facilities)</span>' : '') : '<span class="muted">None reported</span>') + '</dd></div>';
 
-    /* tiles */
-    var R = f.ratings;
-    function rt(label, r, key) {
-      return '<div class="tile"><div class="k">' + label + '</div><div class="v">' + stars(r[0]) + '</div>' +
-        (r[1] ? '<div class="s">' + esc(fnText(r[1])) + '</div>' :
-          (key ? '<div class="s">State avg ' + fmt(bs.ratings[key], 1) + ' · US ' + fmt(bn.ratings[key], 1) + '</div>' : '')) + '</div>';
+    var h = '<a class="back" href="#/">← Back to search</a>' +
+      '<div class="phead"><div><h1>' + esc(f.name) + '</h1><div class="sub">CCN ' + esc(f.ccn) + ' · ' + esc(f.address) + ', ' + esc(f.city) + ', ' + esc(f.state) + ' ' + esc(f.zip) + (f.county ? ' · ' + esc(f.county) + ' County' : '') + '</div>' +
+      (chips.length ? '<div class="chips">' + chips.map(function (c) { return '<span class="chip ' + c[0] + '">' + esc(c[1]) + '</span>'; }).join('') + '</div>' : '') + '</div>' +
+      '<div class="controls"><span id="addmsg" class="muted small"></span><select id="addsel" aria-label="Portfolio to add to">' + pfOptions(S.target) + '</select><button id="addbtn" class="primary">Add to portfolio</button><button onclick="window.print()">Print / PDF</button></div></div>';
+
+    /* section navigation */
+    var SECTIONS = [['ratings', 'Ratings'], ['inspections', 'Inspections'], ['deficiencies', 'Deficiencies'], ['staffing', 'Staffing'], ['quality', 'Quality measures'], ['penalties', 'Penalties'], ['ownership', 'Ownership']];
+    h += '<div class="secnav" role="navigation" aria-label="Report sections">' + SECTIONS.map(function (x) { return '<button data-go="sec-' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
+
+    /* overview */
+    h += '<div class="card strip">' +
+      '<div class="stat"><div class="k">Overall rating</div><div class="v">' + stars(R.overall[0]) + '</div><div class="s">' + (R.overall[1] ? esc(fnText(R.overall[1])) : esc(f.state) + ' average ' + fmt(bs.ratings['Overall Rating'], 1) + ' · US ' + fmt(bn.ratings['Overall Rating'], 1)) + '</div></div>' +
+      '<div class="stat"><div class="k">Certified beds</div><div class="v">' + fmt(f.beds, 0) + '</div></div>' +
+      '<div class="stat"><div class="k">Average residents per day</div><div class="v">' + fmt(f.residents, 1) + '</div>' + (f.residents_fn ? '<div class="s">' + esc(fnText(f.residents_fn)) + '</div>' : '<div class="s">' + esc(f.state) + ' average ' + fmt(bs['Average Number of Residents per Day'], 1) + '</div>') + '</div>' +
+      '<div class="stat"><div class="k">Occupancy (derived)</div><div class="v">' + (f.occupancy == null ? NA : fmt(f.occupancy * 100, 1) + '%') + '</div>' +
+      (f.occupancy == null ? '' : '<div class="meter" role="img" aria-label="Occupancy ' + fmt(f.occupancy * 100, 1) + ' percent"><i style="width:' + Math.min(100, f.occupancy * 100).toFixed(1) + '%"></i></div>') +
+      '<div class="s">Average residents ÷ certified beds</div></div></div>';
+
+    h += '<div class="card"><dl class="facts">' + facts + '</dl></div>';
+
+    /* risk snapshot */
+    var ij = D.filter(function (d) { return d[1] === 'H' && 'JKL'.indexOf(d[3]) !== -1; }).length;
+    var harm = D.filter(function (d) { return d[1] === 'H' && 'GHI'.indexOf(d[3]) !== -1; }).length;
+    function rstat(label, value, sub) {
+      var zero = value === 0 || value === '$0';
+      return '<div class="stat"><div class="k">' + label + '</div><div class="v' + (zero ? ' zero' : '') + '">' + value + '</div><div class="s">' + sub + '</div></div>';
     }
-    h += '<div class="tiles">' + rt('Overall rating', R.overall, 'Overall Rating') + rt('Health inspection', R.health, 'Health Inspection Rating') +
-      rt('Staffing', R.staffing, 'Staffing Rating') + rt('Quality measures', R.qm, 'QM Rating') +
-      '<div class="tile"><div class="k">Certified beds</div><div class="v">' + fmt(f.beds, 0) + '</div></div>' +
-      '<div class="tile"><div class="k">Avg residents per day</div><div class="v">' + fmt(f.residents, 1) + '</div>' + (f.residents_fn ? '<div class="s">' + esc(fnText(f.residents_fn)) + '</div>' : '') + '</div>' +
-      '<div class="tile"><div class="k">Occupancy (derived)</div><div class="v">' + (f.occupancy == null ? NA : fmt(f.occupancy * 100, 1) + '%') + '</div><div class="s">Avg residents ÷ certified beds</div></div>' +
-      '</div>';
+    h += '<div class="sect"><span>Risk snapshot</span></div><div class="card strip">' +
+      rstat('Immediate jeopardy citations', ij, 'Health, scope and severity J to L, last 3 cycles') +
+      rstat('Actual harm citations', harm, 'Health, scope and severity G to I, last 3 cycles') +
+      rstat('Fines, last 3 years', money(P.fine_total), fmt(P.fines, 0) + (P.fines === 1 ? ' fine' : ' fines') + ' · ' + esc(f.state) + ' average per facility ' + money(bs['Fine Amount in Dollars'])) +
+      rstat('Payment denials, last 3 years', P.denials == null ? NA : P.denials, 'Denials of payment for new admissions') + '</div>';
 
-    /* star build-up + QM sub ratings */
-    h += '<div class="grid2"><div class="card"><h2>How the overall rating is built</h2>';
+    /* ratings */
+    function rcard(label, r, key) {
+      return '<div class="card rcard"><div class="stat"><div class="k">' + label + '</div></div><div class="v">' + (r[0] == null ? '<span class="na" style="font-size:18px">Not rated</span>' : r[0] + ' <span class="stars" style="margin-left:6px">' + stars(r[0]).replace(/^<span[^>]*>|<\/span>$/g, '') + '</span>') + '</div>' +
+        '<div class="rsub">' + (r[1] ? esc(fnText(r[1])) : key ? esc(f.state) + ' average <b>' + fmt(bs.ratings[key], 1) + '</b> · US average <b>' + fmt(bn.ratings[key], 1) + '</b>' : '&nbsp;') + '</div></div>';
+    }
+    h += '<div class="sect" id="sec-ratings"><span>Star ratings</span></div><div class="rgrid four">' +
+      rcard('Overall', R.overall, 'Overall Rating') + rcard('Health inspection', R.health, 'Health Inspection Rating') + rcard('Staffing', R.staffing, 'Staffing Rating') + rcard('Quality measures', R.qm, 'QM Rating') + '</div>';
+
+    h += '<div class="grid2" style="margin-top:12px"><div class="card"><h2>How the overall rating is built</h2>';
     if (f.star_steps) {
       h += '<ul class="steps">' + f.star_steps.map(function (s) {
         var adj = s[1] == null ? '' : s[1] > 0 ? '+1 star' : s[1] < 0 ? '−1 star' : 'No change';
@@ -226,96 +246,108 @@
       h += '<p>' + (R.overall[1] ? esc(fnText(R.overall[1])) : 'CMS has not published an overall rating for this facility.') + '</p>';
     }
     h += '<p class="src">The build-up follows the CMS Five-Star rules and is checked against the published rating at every refresh.</p></div>' +
-      '<div class="card"><h2>Quality measure ratings</h2><table><tbody>' +
-      '<tr><td>Overall QM rating</td><td>' + stars(R.qm[0]) + fnNote(R.qm[1]) + '</td></tr>' +
-      '<tr><td>Long-stay QM rating</td><td>' + stars(R.qm_long[0]) + fnNote(R.qm_long[1]) + '</td></tr>' +
-      '<tr><td>Short-stay QM rating</td><td>' + stars(R.qm_short[0]) + fnNote(R.qm_short[1]) + '</td></tr>' +
-      '</tbody></table>' + src('Provider Information') + '</div></div>';
+      '<div class="card"><h2>Quality measure sub-ratings</h2><ul class="steps plain">' +
+      '<li><span>Overall quality measure rating' + fnNote(R.qm[1]) + '</span><span>' + stars(R.qm[0]) + '</span></li>' +
+      '<li><span>Long-stay rating' + fnNote(R.qm_long[1]) + '</span><span>' + stars(R.qm_long[0]) + '</span></li>' +
+      '<li><span>Short-stay rating' + fnNote(R.qm_short[1]) + '</span><span>' + stars(R.qm_short[0]) + '</span></li>' +
+      '</ul>' + src('Provider Information') + '</div></div>';
 
-    /* survey */
-    var sv = f.survey;
+    /* inspections */
     function cyc(label, c) {
       return '<tr><td>' + label + (c.fn ? fnNote(c.fn) : '') + '</td><td>' + fdate(c.date) + '</td><td class="n">' + fmt(c.total, 0) + '</td><td class="n">' + fmt(c.complaint, 0) +
         '</td><td class="n">' + fmt(c.def_score, 0) + '</td><td class="n">' + fmt(c.revisits, 0) + '</td><td class="n">' + fmt(c.revisit_score, 0) + '</td><td class="n">' + fmt(c.score, 0) + '</td></tr>';
     }
-    h += '<div class="card"><h2>Health inspections</h2><div class="scroll"><table><thead><tr><th>Rating cycle</th><th>Standard survey date</th><th class="n">Health deficiencies</th><th class="n">From complaints</th><th class="n">Deficiency score</th><th class="n">Revisits</th><th class="n">Revisit score</th><th class="n">Total score</th></tr></thead><tbody>' +
+    h += '<div class="sect" id="sec-inspections"><span>Health inspections <span class="muted" style="font-weight:400">· lower scores are better</span></span></div><div class="card"><div class="scroll"><table><thead><tr><th>Rating cycle</th><th>Standard survey date</th><th class="n">Health deficiencies</th><th class="n">From complaints</th><th class="n">Deficiency score</th><th class="n">Revisits</th><th class="n">Revisit score</th><th class="n">Total score</th></tr></thead><tbody>' +
       cyc('Cycle 1 (most recent)', sv.c1) + cyc('Cycles 2 and 3', sv.c23) +
-      '<tr><td colspan="7"><strong>Total weighted health survey score</strong> <span class="muted">(lower is better; 3/4 cycle 1, 1/4 cycles 2 and 3)</span></td><td class="n"><strong>' + fmt(sv.weighted, 3) + '</strong></td></tr>' +
+      '<tr class="total"><td colspan="7">Total weighted health survey score <span class="muted" style="font-weight:400">(3/4 cycle 1, 1/4 cycles 2 and 3)</span></td><td class="n">' + fmt(sv.weighted, 3) + '</td></tr>' +
       '</tbody></table></div>' +
-      '<p class="small muted">State average cycle 1 health deficiencies: ' + fmt(bs['Cycle 1 Total Number of Health Deficiencies'], 1) + ' · US: ' + fmt(bn['Cycle 1 Total Number of Health Deficiencies'], 1) +
+      '<p class="small muted" style="margin:12px 0 0">Cycle 1 health deficiencies: ' + esc(f.state) + ' average ' + fmt(bs['Cycle 1 Total Number of Health Deficiencies'], 1) + ' · US average ' + fmt(bn['Cycle 1 Total Number of Health Deficiencies'], 1) +
       ' · Citations from infection control inspections: ' + fmt(sv.infection_citations, 0) + '</p>' + src('Provider Information and State US Averages') + '</div>';
 
     /* deficiencies */
-    var D = f.deficiencies;
-    var bandRows = SEV_BANDS.map(function (b) {
+    var bands = SEV_BANDS.map(function (b) {
       var c = { H: 0, F: 0 };
       D.forEach(function (d) { if (b[0].indexOf(d[3]) !== -1) c[d[1]]++; });
-      return '<tr><td><span class="sev ' + b[2] + '">' + b[0][0] + ' to ' + b[0][2] + '</span> ' + b[1] + '</td><td class="n">' + c.H + '</td><td class="n">' + c.F + '</td></tr>';
+      return '<div class="band ' + b[2] + '"><div class="k"><span class="sev ' + b[2] + '">' + b[0][0] + ' to ' + b[0][2] + '</span> ' + b[1] + '</div><div class="nums"><span><b>' + c.H + '</b> health</span><span><b>' + c.F + '</b> fire safety</span></div></div>';
     }).join('');
-    h += '<div class="card"><h2>Deficiencies cited (' + D.length + ')</h2>' +
-      '<div class="scroll"><table style="max-width:640px"><thead><tr><th>Scope and severity</th><th class="n">Health</th><th class="n">Fire safety</th></tr></thead><tbody>' + bandRows + '</tbody></table></div>' +
-      '<div class="controls" style="margin-top:14px"><label class="cb"><input type="checkbox" id="fH" checked> Health</label><label class="cb"><input type="checkbox" id="fF" checked> Fire safety</label><label class="cb"><input type="checkbox" id="fG"> Actual harm or immediate jeopardy only (G to L)</label></div>' +
-      '<div class="scroll" id="deftable"></div>' + src('Health Deficiencies and Fire Safety Deficiencies (three most recent inspection cycles)') + '</div>';
+    var cycles = {};
+    D.forEach(function (d) { cycles[d[4]] = 1; });
+    h += '<div class="sect" id="sec-deficiencies"><span>Deficiencies cited <span class="muted" style="font-weight:400">· ' + D.length + ' in the three most recent inspection cycles</span></span></div>' +
+      '<div class="bands">' + bands + '</div>' +
+      '<div class="card"><div class="controls"><label class="cb"><input type="checkbox" id="fH" checked> Health</label><label class="cb"><input type="checkbox" id="fF" checked> Fire safety</label>' +
+      '<label class="cb"><input type="checkbox" id="fG"> Actual harm or immediate jeopardy only</label>' +
+      '<select id="fC" aria-label="Inspection cycle"><option value="">All cycles</option>' + Object.keys(cycles).sort().map(function (c) { return '<option value="' + esc(c) + '">Cycle ' + esc(c) + '</option>'; }).join('') + '</select>' +
+      '<span id="defcount" class="muted small"></span></div>' +
+      '<div class="scroll tall" id="deftable"></div>' + src('Health Deficiencies and Fire Safety Deficiencies') + '</div>';
 
     /* staffing */
-    h += '<div class="card"><h2>Staffing</h2><div class="scroll"><table><thead><tr><th>Measure</th><th class="n">Facility</th><th class="n">' + esc(f.state) + ' average</th><th class="n">US average</th></tr></thead><tbody>' +
+    h += '<div class="sect" id="sec-staffing"><span>Staffing</span></div><div class="card"><div class="scroll"><table><thead><tr><th>Measure</th><th class="n">Facility</th><th class="n">' + esc(f.state) + ' average</th><th class="n">US average</th><th class="n">Facility vs US</th></tr></thead><tbody>' +
       f.staffing.map(function (r) {
         var sb = bs.staffing[r[0]], nb = bn.staffing[r[0]], has = r[0] in bn.staffing;
-        return '<tr><td>' + esc(r[0]) + (r[1] == null ? fnNote(r[2]) : '') + '</td><td class="n">' + fmt(r[1], r[3]) + '</td><td class="n">' +
-          (has ? fmt(sb, r[3]) : '<span class="na">Not published</span>') + '</td><td class="n">' + (has ? fmt(nb, r[3]) : '<span class="na">Not published</span>') + '</td></tr>';
+        var diff = r[1] != null && nb != null ? r[1] - nb : null;
+        return '<tr><td>' + esc(r[0]) + (r[1] == null ? fnNote(r[2]) : '') + '</td><td class="n strong">' + fmt(r[1], r[3]) + '</td><td class="n">' +
+          (has ? fmt(sb, r[3]) : '<span class="na">Not published</span>') + '</td><td class="n">' + (has ? fmt(nb, r[3]) : '<span class="na">Not published</span>') + '</td><td class="n muted">' +
+          (diff == null ? '' : (diff > 0 ? '+' : diff < 0 ? '−' : '') + fmt(Math.abs(diff), r[3])) + '</td></tr>';
       }).join('') + '</tbody></table></div>' +
-      (R.staffing[1] ? '<p class="small muted">Staffing rating note: ' + esc(fnText(R.staffing[1])) + '</p>' : '') +
+      (R.staffing[1] ? '<p class="small muted" style="margin:12px 0 0">Staffing rating note: ' + esc(fnText(R.staffing[1])) + '</p>' : '') +
       src('Provider Information (Payroll-Based Journal staffing as published by CMS) and State US Averages') + '</div>';
 
-    /* QMs */
-    h += '<div class="card"><h2>Quality measures</h2><div class="scroll"><table><thead><tr><th>Measure</th><th>Stay</th><th>Used in Five-Star</th><th class="n">Facility</th><th class="n">' + esc(f.state) + ' average</th><th class="n">US average</th><th>Period</th></tr></thead><tbody>' +
-      f.qm.map(function (q) {
-        var m = L.measures[q[0]] || { desc: 'Measure ' + q[0], type: '', period: '' };
-        return '<tr><td>' + esc(m.desc) + (q[1] == null ? fnNote(q[2]) : '') + '</td><td>' + esc(m.type) + '</td><td>' + (m.five_star ? 'Yes' : 'No') + '</td><td class="n">' + fmt(q[1], 2) +
-          '</td><td class="n">' + fmt(bs.qm[q[0]], 2) + '</td><td class="n">' + fmt(bn.qm[q[0]], 2) + '</td><td class="small">' + esc(period(m.period)) + '</td></tr>';
-      }).join('') + '</tbody></table></div>' +
-      '<p class="small muted">MDS measures show the four-quarter average. Claims-based measures show the risk-adjusted score.</p>' +
+    /* quality measures, grouped by stay type */
+    function qmTable(type) {
+      var rows = f.qm.filter(function (q) { return ((L.measures[q[0]] || {}).type || '') === type; });
+      if (!rows.length) return '';
+      return '<h2 style="margin-top:' + (type === 'Long Stay' ? '0' : '22px') + '">' + (type === 'Long Stay' ? 'Long-stay residents' : 'Short-stay residents') + '</h2><div class="scroll"><table><thead><tr><th>Measure</th><th class="n">Facility</th><th class="n">' + esc(f.state) + ' average</th><th class="n">US average</th><th>Period</th></tr></thead><tbody>' +
+        rows.map(function (q) {
+          var m = L.measures[q[0]];
+          return '<tr><td>' + esc(m.desc) + (m.five_star ? ' <span class="chip tiny">Five-Star</span>' : '') + (q[1] == null ? fnNote(q[2]) : '') + '</td><td class="n strong">' + fmt(q[1], 2) +
+            '</td><td class="n">' + fmt(bs.qm[q[0]], 2) + '</td><td class="n">' + fmt(bn.qm[q[0]], 2) + '</td><td class="small muted" style="white-space:nowrap">' + esc(period(m.period)) + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+    h += '<div class="sect" id="sec-quality"><span>Quality measures <span class="muted" style="font-weight:400">· measures marked Five-Star count toward the quality measure rating</span></span></div><div class="card">' + qmTable('Long Stay') + qmTable('Short Stay') +
+      '<p class="small muted" style="margin:12px 0 0">MDS measures show the four-quarter average. Claims-based measures show the risk-adjusted score.</p>' +
       src('MDS Quality Measures, Medicare Claims Quality Measures, and State US Averages') + '</div>';
 
     /* penalties */
-    var P = f.penalties;
-    h += '<div class="card"><h2>Penalties (last three years)</h2><div class="tiles" style="margin-bottom:10px">' +
-      '<div class="tile"><div class="k">Fines</div><div class="v">' + fmt(P.fines, 0) + '</div><div class="s">State avg ' + fmt(bs['Number of Fines'], 1) + ' · US ' + fmt(bn['Number of Fines'], 1) + '</div></div>' +
-      '<div class="tile"><div class="k">Total fines</div><div class="v">' + money(P.fine_total) + '</div><div class="s">State avg ' + money(bs['Fine Amount in Dollars']) + ' · US ' + money(bn['Fine Amount in Dollars']) + '</div></div>' +
-      '<div class="tile"><div class="k">Payment denials</div><div class="v">' + fmt(P.denials, 0) + '</div></div></div>' +
+    h += '<div class="sect" id="sec-penalties"><span>Penalties <span class="muted" style="font-weight:400">· last three years</span></span></div><div class="card">' +
       (P.rows.length ? '<div class="scroll"><table><thead><tr><th>Penalty date</th><th>Type</th><th class="n">Fine amount</th><th>Denial start</th><th class="n">Denial length (days)</th></tr></thead><tbody>' +
         P.rows.map(function (r) {
           var fine = r[1] === 'Fine';
           return '<tr><td>' + fdate(r[0]) + '</td><td>' + esc(r[1]) + '</td><td class="n">' + (fine ? money(r[2]) : '') + '</td><td>' + (fine ? '' : fdate(r[3])) + '</td><td class="n">' + (fine ? '' : fmt(r[4], 0)) + '</td></tr>';
-        }).join('') + '</tbody></table></div>' : '<p>No fines or payment denials reported by CMS in the last three years.</p>') +
-      src('Penalties and Provider Information') + '</div>';
+        }).join('') + '<tr class="total"><td colspan="2">Total fines (' + fmt(P.fines, 0) + ')</td><td class="n">' + money(P.fine_total) + '</td><td colspan="2"></td></tr></tbody></table></div>' :
+        '<p style="margin:0">No fines or payment denials reported by CMS in the last three years.</p>') +
+      '<p class="small muted" style="margin:12px 0 0">Number of fines: ' + esc(f.state) + ' average ' + fmt(bs['Number of Fines'], 1) + ' · US average ' + fmt(bn['Number of Fines'], 1) + '. Fine dollars: ' + esc(f.state) + ' average ' + money(bs['Fine Amount in Dollars']) + ' · US average ' + money(bn['Fine Amount in Dollars']) + '.</p>' +
+      src('Penalties, Provider Information, and State US Averages') + '</div>';
 
     /* ownership */
-    h += '<div class="card"><h2>Ownership and management (' + f.owners.length + ')</h2>' +
-      (f.owners.length ? '<div class="scroll"><table><thead><tr><th>Name</th><th>Role</th><th>Type</th><th class="n">Ownership</th><th>Association date</th></tr></thead><tbody>' +
+    h += '<div class="sect" id="sec-ownership"><span>Ownership and management <span class="muted" style="font-weight:400">· ' + f.owners.length + ' reported</span></span></div><div class="card">' +
+      (f.owners.length ? '<div class="scroll tall"><table><thead><tr><th>Name</th><th>Role</th><th>Type</th><th class="n">Ownership</th><th>Associated since</th></tr></thead><tbody>' +
         f.owners.map(function (o) {
-          return '<tr><td>' + (o[2] ? esc(o[2]) : NA) + '</td><td>' + esc(o[0]) + '</td><td>' + esc(o[1] || '') + '</td><td class="n">' + esc(o[3] || '') + '</td><td>' + esc((o[4] || '').replace(/^since\s+/i, '')) + '</td></tr>';
-        }).join('') + '</tbody></table></div>' : '<p>' + NA + '</p>') + src('Ownership') + '</div>';
+          return '<tr><td class="strong">' + (o[2] ? esc(o[2]) : NA) + '</td><td>' + esc(o[0]) + '</td><td>' + esc(o[1] || '') + '</td><td class="n">' + esc(o[3] || '') + '</td><td>' + esc((o[4] || '').replace(/^since\s+/i, '')) + '</td></tr>';
+        }).join('') + '</tbody></table></div>' : '<p style="margin:0">' + NA + '</p>') + src('Ownership') + '</div>';
 
     app.innerHTML = h;
 
     function drawDefs() {
-      var showH = document.getElementById('fH').checked, showF = document.getElementById('fF').checked, gOnly = document.getElementById('fG').checked;
+      var showH = document.getElementById('fH').checked, showF = document.getElementById('fF').checked, gOnly = document.getElementById('fG').checked, cyc = document.getElementById('fC').value;
       var rows = D.filter(function (d) {
-        return ((d[1] === 'H' && showH) || (d[1] === 'F' && showF)) && (!gOnly || 'GHIJKL'.indexOf(d[3]) !== -1);
+        return ((d[1] === 'H' && showH) || (d[1] === 'F' && showF)) && (!gOnly || 'GHIJKL'.indexOf(d[3]) !== -1) && (!cyc || d[4] === cyc);
       });
+      document.getElementById('defcount').textContent = rows.length + ' of ' + D.length + ' shown';
       document.getElementById('deftable').innerHTML = rows.length ?
-        '<table><thead><tr><th>Survey date</th><th>Type</th><th>Tag</th><th>Scope/severity</th><th>Cycle</th><th>Deficiency</th><th>Found during</th><th>Correction</th></tr></thead><tbody>' +
+        '<table><thead><tr><th>Survey date</th><th>Type</th><th>Tag</th><th>Severity</th><th>Cycle</th><th>Deficiency</th><th>Found during</th><th>Correction</th></tr></thead><tbody>' +
         rows.map(function (d) {
           var ds = L.descs[d[5]] || ['', ''];
           var found = [d[6] ? 'Standard survey' : null, d[7] ? 'Complaint' : null, d[8] ? 'Infection control' : null].filter(Boolean).join(', ');
-          return '<tr><td>' + fdate(d[0]) + (d[12] ? fnNote(d[12]) : '') + '</td><td>' + (d[1] === 'H' ? 'Health' : 'Fire safety') + '</td><td>' + esc(d[2]) + '</td><td><span class="sev ' + sevClass(d[3]) + '">' + esc(d[3]) +
+          return '<tr><td style="white-space:nowrap">' + fdate(d[0]) + (d[12] ? fnNote(d[12]) : '') + '</td><td>' + (d[1] === 'H' ? 'Health' : 'Fire safety') + '</td><td>' + esc(d[2]) + '</td><td><span class="sev ' + sevClass(d[3]) + '">' + esc(d[3]) +
             '</span></td><td>' + esc(d[4]) + '</td><td>' + esc(ds[0]) + '<div class="muted small">' + esc(ds[1]) + (d[11] ? ' · Under dispute resolution' : '') + '</div></td><td>' + esc(found) +
             '</td><td>' + esc(d[9]) + (d[10] ? '<div class="muted small">' + fdate(d[10]) + '</div>' : '') + '</td></tr>';
         }).join('') + '</tbody></table>' : '<p class="muted">No deficiencies match the selected filters.</p>';
     }
-    ['fH', 'fF', 'fG'].forEach(function (id) { document.getElementById(id).addEventListener('change', drawDefs); });
+    ['fH', 'fF', 'fG', 'fC'].forEach(function (id) { document.getElementById(id).addEventListener('change', drawDefs); });
     drawDefs();
+    Array.prototype.forEach.call(app.querySelectorAll('.secnav [data-go]'), function (b) {
+      b.addEventListener('click', function () { document.getElementById(b.dataset.go).scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+    });
     var addsel = document.getElementById('addsel');
     addsel.addEventListener('change', function () { if (addsel.value !== '__new') S.target = addsel.value; });
     document.getElementById('addbtn').addEventListener('click', function () {
