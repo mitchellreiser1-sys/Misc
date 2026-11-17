@@ -60,9 +60,10 @@ def check_release_consistency(meta, data):
     mods = {m["modified"] for m in meta.values()}
     dates = set()
     for key, rows in data.items():
-        dates |= {r["Processing Date"] for r in rows}
+        # one CMS file writes the date as 20261001, the rest as 2026-10-01
+        dates |= {r["Processing Date"].replace("-", "") for r in rows if "Processing Date" in r}
     ok = len(mods) == 1 and len(dates) == 1
-    detail = f"CMS release dates: {sorted(mods)}; processing dates in files: {sorted(dates)}."
+    detail = f"CMS release dates: {sorted(mods)}; processing dates in files: {sorted(d[:4] + "-" + d[4:6] + "-" + d[6:] for d in dates)}."
     return _result("release", "All files come from the same CMS release", "gate", ok, detail)
 
 
@@ -83,7 +84,7 @@ def check_provider_count(providers, previous_count):
 def check_orphans(data):
     known = {r[CCN] for r in data["provider"]}
     bad = {}
-    for key in ("health_def", "fire_def", "qm_mds", "qm_claims", "ownership", "penalties"):
+    for key in ("health_def", "fire_def", "qm_mds", "qm_claims", "ownership", "penalties", "survey_dates"):
         orphans = {r[CCN] for r in data[key]} - known
         if orphans:
             bad[DATASETS[key]["title"]] = len(orphans)
@@ -237,6 +238,67 @@ def check_cycle1_counts(providers, health_def):
     return _result("cycle1", "Cycle 1 deficiency counts versus the deficiency detail (informational)", "info", diff == 0,
                    f"{checked - diff:,} of {checked:,} facilities tie exactly. The rating cycle count and the detail "
                    f"file use different complaint survey windows, so some differences are expected. Both are shown as published.")
+
+
+def check_history_seed(current_snapshot, archived_snapshot):
+    """The release history is seeded from CMS's own archives. When the archive
+    for the current release is on hand, it must match the live files exactly."""
+    if archived_snapshot is None:
+        return _result("history", "Release history matches CMS's archive (informational)", "info", True,
+                       "No archived copy of this release is on hand yet, so there is nothing to compare.")
+    diff = sum(1 for c, row in current_snapshot.items() if archived_snapshot.get(c) != row) + \
+        sum(1 for c in archived_snapshot if c not in current_snapshot)
+    return _result("history", "Release history matches CMS's archive of this release", "gate", diff == 0,
+                   f"{len(current_snapshot):,} facility snapshots compared with CMS's archived copy; {diff} differ.")
+
+
+def check_pbj(providers, pbj, quarter, period):
+    """Daily staffing rolled up to the quarter must reproduce CMS's published
+    hours per resident day before any PBJ-derived detail is shown."""
+    if pbj is None:
+        return _result("pbj", "Daily staffing detail (supplementary)", "info", False,
+                       "The daily staffing file for the published staffing period was not available or its layout changed. Contract staffing and RN coverage are left out of this release.")
+    checked = tied = 0
+    for r in providers:
+        published = num(r["Reported Total Nurse Staffing Hours per Resident per Day"])
+        a = pbj.get(r[CCN])
+        if published is None or not a or not a["census"]:
+            continue
+        checked += 1
+        if abs(a["hours"] / a["census"] - published) <= 0.0051:
+            tied += 1
+    rate = tied / checked if checked else 0
+    ok = checked > 10000 and rate >= 0.99
+    return _result("pbj", "Daily staffing file reproduces published staffing hours (supplementary)", "info", ok,
+                   f"Quarter {quarter} ({period}). Total nurse hours per resident day rebuilt from daily records for {checked:,} facilities; "
+                   f"{tied:,} tie to the published figure ({rate:.2%})." + ("" if ok else " Below the 99% threshold, so contract staffing and RN coverage are left out of this release."))
+
+
+def check_cut_points(providers, thresholds):
+    from .extras import cut_point_band
+    checked = same = 0
+    for r in providers:
+        score, rating = num(r["Total Weighted Health Survey Score"]), num(r["Health Inspection Rating"])
+        if score is None or rating is None or r["State"] not in thresholds:
+            continue
+        checked += 1
+        band = cut_point_band(score, thresholds[r["State"]])
+        if r["Abuse Icon"] == "Y":
+            band = min(band, 2)
+        same += band == rating
+    return _result("cutpoints", "Health inspection ratings versus current state cut points (informational)", "info", checked > 0 and same == checked,
+                   f"{same:,} of {checked:,} published ratings match the band implied by the current cut points. CMS holds a rating "
+                   f"until new survey activity, so some differences are expected. The published rating is always shown; the cut point band is context only.")
+
+
+def check_vbp(providers, vbp, fy):
+    if vbp is None:
+        return _result("vbp", "SNF Value-Based Purchasing (supplementary)", "info", False,
+                       "The VBP facility file was not available or its layout changed. The VBP section is left out of this release.")
+    known = {r[CCN] for r in providers}
+    matched = sum(1 for c in vbp if c in known)
+    return _result("vbp", "SNF Value-Based Purchasing file loaded (supplementary)", "info", True,
+                   f"FY {fy}: {len(vbp):,} facilities in the VBP file, {matched:,} of them in the current facility list.")
 
 
 def run_all(headers, meta, data, previous_manifest=None):

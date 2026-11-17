@@ -4,6 +4,8 @@ import os
 import shutil
 from collections import defaultdict
 
+from . import extras, history as history_mod, risk as risk_mod
+from .history import F as HF
 from .metrics import flag, num, occupancy, overall_rating_steps, text
 from .sources import CCN, FOOTNOTES
 
@@ -41,7 +43,26 @@ def _write(path, obj):
         json.dump(obj, f, separators=(",", ":"), ensure_ascii=False)
 
 
-def build(data, meta, results, site_src, out_dir, built_at, pipeline_version):
+def _year_ago_overall(hist, date, ccn):
+    """Published overall rating from the release closest to 12 months earlier (9 to 15 months back)."""
+    y, m = int(date[:4]), int(date[5:7])
+    target = (y - 1) * 12 + m
+    best = None
+    for d in history_mod.dates(hist):
+        gap = abs(int(d[:4]) * 12 + int(d[5:7]) - target)
+        if gap <= 3 and (best is None or gap < best[0]):
+            best = (gap, d)
+    if not best:
+        return None, None
+    row = hist["snapshots"][best[1]].get(ccn)
+    return (row[HF["overall"]] if row else None), best[1]
+
+
+def build(data, meta, results, site_src, out_dir, built_at, pipeline_version, extra=None):
+    extra = extra or {}
+    hist = extra.get("history")
+    pbj, vbp, cut_points = extra.get("pbj"), extra.get("vbp"), extra.get("cut_points") or {}
+    release_date = data["provider"][0]["Processing Date"]
     if os.path.exists(out_dir):
         shutil.rmtree(out_dir)
     shutil.copytree(site_src, out_dir)
@@ -103,8 +124,9 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version):
     health, fire = _group(data["health_def"]), _group(data["fire_def"])
     qm_mds, qm_claims = _group(data["qm_mds"]), _group(data["qm_claims"])
     owners, pens = _group(data["ownership"]), _group(data["penalties"])
+    survey_dates = _group(data["survey_dates"])
 
-    index, chains = [], {}
+    index, chains, facs = [], {}, []
     for p in providers:
         ccn = p[CCN]
         beds, residents = num(p["Number of Certified Beds"]), num(p["Average Number of Residents per Day"])
@@ -127,6 +149,19 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version):
                     d.get("Survey Footnote", ""),
                 ])
         defs.sort(key=lambda x: (x[0], x[3]), reverse=True)
+        repeats = extras.repeat_tags((d[2], d[4]) for d in defs if d[1] == "H")
+        harm = sum(1 for d in defs if d[1] == "H" and d[3] in "GHI")
+        jeopardy = sum(1 for d in defs if d[1] == "H" and d[3] in "JKL")
+        pm = extras.pbj_metrics(pbj.get(ccn)) if pbj else None
+        year_ago, year_ago_date = _year_ago_overall(hist, release_date, ccn) if hist else (None, None)
+        sff_code = history_mod.SFF_CODES.get(p["Special Focus Status"].strip(), 0)
+        rscore, rparts = risk_mod.score(
+            ij=jeopardy, harm=harm, repeat=len(repeats), sff=sff_code, abuse=p["Abuse Icon"] == "Y",
+            health=r_health, staffing=r_staff, turnover=num(p["Total nursing staff turnover"]),
+            contract_share=pm["contract_share"] if pm else None,
+            fine_total=num(p["Total Amount of Fines in Dollars"]) or 0, denials=num(p["Number of Payment Denials"]) or 0,
+            overall_now=r_overall, overall_year_ago=year_ago)
+        thresholds = cut_points.get(p["State"])
 
         fac = {
             "ccn": ccn, "name": p["Provider Name"], "legal_name": text(p["Legal Business Name"]),
@@ -194,10 +229,17 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version):
                       None, num(x["Observed Score"]), num(x["Expected Score"])] for x in qm_claims.get(ccn, [])],
             "owners": [[x["Role played by Owner or Manager in Facility"], text(x["Owner Type"]), text(x["Owner Name"]),
                         text(x["Ownership Percentage"]), text(x["Association Date"])] for x in owners.get(ccn, [])],
+            "repeat": repeats,
+            "surveys": sorted(([x["Survey Date"], x["Type of Survey"], x["Survey Cycle"]] for x in survey_dates.get(ccn, [])),
+                              key=lambda x: (x[0], x[1]), reverse=True),
+            "history": history_mod.series(hist, ccn) if hist else None,
+            "cut": {"thresholds": thresholds,
+                    "band": extras.cut_point_band(num(p["Total Weighted Health Survey Score"]), thresholds)} if thresholds else None,
+            "pbj": pm,
+            "vbp": vbp.get(ccn) if vbp else None,
+            "risk": {"score": rscore, "parts": rparts, "year_ago": year_ago, "year_ago_date": year_ago_date},
         }
-        _write(os.path.join(out_dir, "data", "f", f"{ccn}.json"), fac)
-        harm = sum(1 for d in defs if d[1] == "H" and d[3] in "GHI")
-        jeopardy = sum(1 for d in defs if d[1] == "H" and d[3] in "JKL")
+        facs.append(fac)
         # Column order is mirrored in site/app.js (IX). Append only.
         index.append([ccn, p["Provider Name"], p["City/Town"], p["State"], p["ZIP Code"],
                       p["County/Parish"], p["Chain Name"], r_overall, beds,
@@ -211,7 +253,7 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version):
                       num(p["Number of Fines"]), num(p["Total Amount of Fines in Dollars"]),
                       num(p["Number of Payment Denials"]),
                       1 if p["Provider Changed Ownership in Last 12 Months"] == "Y" else 0,
-                      p["Chain ID"], harm, jeopardy])
+                      p["Chain ID"], harm, jeopardy, rscore, len(repeats)])
         if text(p["Chain ID"]) and p["Chain ID"] not in chains:
             chains[p["Chain ID"]] = {
                 "name": p["Chain Name"], "count": num(p["Number of Facilities in Chain"]),
@@ -220,6 +262,38 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version):
                 "staffing": num(p["Chain Average Staffing Rating"]),
                 "qm": num(p["Chain Average QM Rating"])}
 
+    # Risk score percentiles need every facility's score, so facility files are written last
+    us_pct = risk_mod.percentiles([f["risk"]["score"] for f in facs])
+    by_state = defaultdict(list)
+    for f in facs:
+        by_state[f["state"]].append(f["risk"]["score"])
+    state_pct = {s: risk_mod.percentiles(v) for s, v in by_state.items()}
+    for f in facs:
+        f["risk"]["pct_us"] = us_pct[f["risk"]["score"]]
+        f["risk"]["pct_state"] = state_pct[f["state"]][f["risk"]["score"]]
+        _write(os.path.join(out_dir, "data", "f", f"{f['ccn']}.json"), f)
+
+    position = {row[0]: i for i, row in enumerate(index)}
+    _write(os.path.join(out_dir, "data", "owners.json"), extras.owner_index(data["ownership"], position))
+    if extra.get("changes"):
+        _write(os.path.join(out_dir, "data", "changes.json"), extra["changes"])
+
+    # Backtest the score over each 12-month span the release history covers
+    backtest = []
+    if hist:
+        ds = history_mod.dates(hist)
+        months = lambda d: int(d[:4]) * 12 + int(d[5:7])
+        end = release_date
+        while True:
+            earlier = [d for d in ds if abs(months(d) - (months(end) - 12)) <= 2]
+            if not earlier:
+                break
+            start = min(earlier, key=lambda d: abs(months(d) - (months(end) - 12)))
+            bt = risk_mod.backtest(hist["snapshots"], start, end)
+            if bt:
+                backtest.append(bt)
+            end = start
+
     for m in measures.values():
         m.pop("avg_col")
     processing = providers[0]["Processing Date"]
@@ -227,11 +301,18 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version):
         "built_at": built_at, "pipeline_version": pipeline_version,
         "processing_date": processing, "facility_count": len(providers),
         "datasets": meta, "checks": results,
+        "has_changes": bool(extra.get("changes")),
+        "changes_from": extra["changes"]["from"] if extra.get("changes") else None,
     }
     _write(os.path.join(out_dir, "data", "index.json"), index)
     _write(os.path.join(out_dir, "data", "lookups.json"),
            {"descs": descs, "measures": measures, "benchmarks": benchmarks, "footnotes": FOOTNOTES,
-            "chains": chains})
+            "chains": chains,
+            "risk": {"version": risk_mod.VERSION, "components": risk_mod.COMPONENTS, "backtest": backtest,
+                     "us_percentiles": us_pct},
+            "pbj": {"quarter": extra.get("pbj_quarter"), "period": extra.get("pbj_period")} if pbj else None,
+            "vbp_fy": extra.get("vbp_fy"),
+            "history_releases": len(history_mod.dates(hist)) if hist else 0})
     with open(os.path.join(out_dir, "data", "manifest.json"), "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=1)
     return manifest

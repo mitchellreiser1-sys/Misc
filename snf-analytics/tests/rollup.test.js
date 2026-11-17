@@ -1,9 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { summarize, parseCcns, IX } = require('../site/rollup.js');
+const { summarize, parseCcns, IX, scoreAtPercentile, countAtOrAbove } = require('../site/rollup.js');
 
 function row(o) {
-  const r = new Array(27).fill(null);
+  const r = new Array(29).fill(null);
   Object.keys(o).forEach(k => { r[IX[k]] = o[k]; });
   return r;
 }
@@ -51,4 +51,17 @@ test('counts and sums', () => {
 test('parseCcns pads Excel-stripped zeros, dedupes, ignores junk', () => {
   assert.deepStrictEqual(parseCcns('15009, 015009\n335757; 01A193 abc 1234567'), ['015009', '335757', '01A193']);
   assert.deepStrictEqual(parseCcns(''), []);
+});
+
+test('risk rollup and percentile threshold', () => {
+  const rows = [row({ risk: 10, repeats: 1 }), row({ risk: 50, repeats: 2 }), row({ risk: null })];
+  const s = summarize(rows);
+  assert.strictEqual(s.risk.avg, 30);
+  assert.strictEqual(s.risk.n, 2);
+  assert.strictEqual(s.repeats, 3);
+  const table = { 0: 0, 10: 40, 50: 90, 60: 95 };
+  assert.strictEqual(scoreAtPercentile(table, 90), 50);
+  assert.strictEqual(scoreAtPercentile(table, 99), null);
+  assert.strictEqual(countAtOrAbove(rows, 50), 1);
+  assert.strictEqual(countAtOrAbove(rows, null), 0);
 });

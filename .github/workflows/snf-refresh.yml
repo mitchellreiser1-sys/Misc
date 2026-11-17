@@ -11,6 +11,10 @@ on:
         description: Rebuild even if CMS has not published new files
         type: boolean
         default: false
+      send_email:
+        description: Send the what-changed email for this run (use with force to test email setup)
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths: ["snf-analytics/**", ".github/workflows/snf-refresh.yml"]
@@ -57,7 +61,11 @@ jobs:
         run: |
           force=""
           if [ "${{ github.event_name }}" = "push" ] || [ "${{ inputs.force }}" = "true" ]; then force="--force"; fi
-          python -m pipeline.run --work work --out dist --previous prev_manifest.json $force
+          # Release history from the previous refresh; the seed in the repo is used if none exists yet
+          mkdir -p state
+          gh release download snf-state --pattern history.json.gz --dir state 2>/dev/null || echo "No saved history yet; starting from the seed."
+          python -m pipeline.run --work work --out dist --previous prev_manifest.json \
+            --state-in state/history.json.gz --state-out state_out/history.json.gz $force
 
       - name: Archive the raw CMS files for this release
         if: steps.build.outputs.changed == 'true'
@@ -79,10 +87,30 @@ jobs:
         if: steps.build.outputs.changed == 'true'
         id: deploy
 
+      - name: Save release history for the next refresh
+        if: steps.build.outputs.changed == 'true'
+        run: |
+          gh release view snf-state >/dev/null 2>&1 || gh release create snf-state --latest=false --title "SNF Analytics state" \
+            --notes "Working state for the pipeline: published ratings and flags from each CMS release. Rebuilt from CMS archives if lost."
+          gh release upload snf-state state_out/history.json.gz --clobber
+
+      - name: Email what changed
+        if: steps.build.outputs.changed == 'true' && (steps.build.outputs.new_release == 'true' || inputs.send_email)
+        env:
+          ALERT_TO: ${{ secrets.ALERT_TO }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          WATCHLIST_CCNS: ${{ secrets.WATCHLIST_CCNS }}
+        run: python -m pipeline.notify --site dist --site-url "${{ steps.deploy.outputs.page_url }}"
+
       - name: Open an issue when the refresh fails
         if: failure()
         run: |
           title="SNF Analytics refresh failed"
           if [ -z "$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number')" ]; then
-            gh issue create --title "$title" --body "The refresh did not publish. The site is still showing the last release that passed every check. Run log: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            gh issue create --title "$title" --body "A refresh run failed. If it failed before the deploy step, nothing was published and the site is still showing the last release that passed every check. If it failed at the email step, the site was updated but the email was not sent. Run log: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           fi

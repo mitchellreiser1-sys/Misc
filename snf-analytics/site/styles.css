@@ -32,7 +32,9 @@ a:hover{text-decoration:underline}
 .top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:28px;flex-wrap:wrap;padding:0 24px;min-height:54px;background:var(--card);border-bottom:1px solid var(--line)}
 .brand{font-weight:700;font-size:16px;letter-spacing:-.01em;color:var(--ink)}
 .brand:hover{text-decoration:none}
-.top nav{display:flex;gap:4px;align-self:stretch}
+.top nav{display:flex;gap:4px;align-self:stretch;max-width:100%;overflow-x:auto;scrollbar-width:none}
+.top nav::-webkit-scrollbar{display:none}
+.top nav a{white-space:nowrap;min-height:52px}
 .top nav a{display:flex;align-items:center;padding:0 12px;color:var(--ink2);font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px}
 .top nav a:hover{color:var(--ink);text-decoration:none}
 .top nav a.on{color:var(--accent);border-bottom-color:var(--accent)}
@@ -168,4 +170,86 @@ td.strong{font-weight:600}
 
 @media(max-width:1000px){.rgrid.four,.bands{grid-template-columns:1fr 1fr}}
 @media(max-width:860px){.grid2,.rgrid,.risk{grid-template-columns:1fr}.strip{grid-template-columns:1fr 1fr}.strip>div:nth-child(3){border-left:0}.strip>div:nth-child(n+3){border-top:1px solid var(--line2)}.asof{margin-left:0}.risk>div:first-child>.row:last-child{border-bottom:1px solid var(--line2)}}
-@media print{.top nav,.back,.controls,.foot,button,#tip,.addcard,.secnav{display:none!important}.scroll.tall{max-height:none;overflow:visible}.top{position:static}body{background:#fff}.card,.tile{break-inside:avoid;box-shadow:none}main{max-width:none;padding:0}.ptable td:first-child,.ptable th{position:static}.ptable{max-height:none;overflow:visible}}
+/* ---------- New sections ---------- */
+a.btn{display:inline-block;font-weight:500;padding:7px 13px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);white-space:nowrap}
+a.btn:hover{background:var(--hover);text-decoration:none}
+a.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.printhead{display:none}
+.riskcard{display:grid;grid-template-columns:minmax(260px,1fr) 1.5fr;gap:28px;align-items:start}
+.rk-of{font-size:15px;font-weight:500;color:var(--muted)}
+.risk-meter{background:var(--risk-track);max-width:320px}
+.risk-meter>i{background:var(--risk)}
+.rk-parts table td{padding:7px 8px}
+.hcard{margin:0;padding:14px 16px 8px}
+.hc-head{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--ink2)}
+.hc-head b{font-size:15px;color:var(--ink)}
+.hcard svg{display:block;width:100%;height:auto;margin-top:6px}
+.hc-grid{stroke:var(--line2);stroke-width:1}
+.hc-tick{font-size:9px;fill:var(--muted)}
+.hc-line{fill:none;stroke:var(--meter);stroke-width:2;stroke-linejoin:round}
+.hc-dot{fill:var(--meter);stroke:var(--card);stroke-width:2}
+.hc-hit{fill:transparent;outline:none}
+.hc-hit:hover{fill:var(--accent);fill-opacity:.08}
+.cutbox{margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.cuts{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.cuts span{font-size:12px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink2)}
+.cuts span.on{background:var(--accent-soft);border-color:var(--accent);color:var(--ink);font-weight:600}
+.dir.good{color:var(--good)}.dir.bad{color:var(--bad)}
+.narr{white-space:pre-wrap;font:13.5px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0;color:var(--ink)}
+.chip.tiny.warn{color:var(--warn)}
+@media(max-width:860px){.riskcard{grid-template-columns:1fr}}
+
+/* ---------- Print and PDF ----------
+   A purpose-built report layout. Colors are forced to the light values so a
+   PDF looks the same whatever the viewer's screen setting. The page footer
+   (source line and page numbers) is injected per report by app.js. */
+@page{size:letter;margin:.55in .5in .7in}
+@media print{
+  :root{color-scheme:light;--bg:#fff;--card:#fff;--ink:#141a26;--ink2:#4a5468;--muted:#5b6578;--line:#cfd4dc;--line2:#e3e6ec;--accent:#256abf;--accent-ink:#fff;--accent-soft:#e8f1fc;--hover:#fff;
+    --bad:#b3261e;--badbg:#fdecea;--badline:#f3c1bc;--warn:#8a5a00;--warnbg:#fff5d9;--warnline:#ecd592;--good:#1e6b3a;--goodbg:#e7f4eb;--goodline:#b0d8bd;--star:#c98a00;--staroff:#d3d7df;
+    --r1:#86b6ef;--r2:#5598e7;--r3:#2a78d6;--r4:#1c5cab;--r5:#0d366b;--r1i:#0b0b0b;--r2i:#0b0b0b;--r3i:#fff;--r4i:#fff;--r5i:#fff;--rna:#e3e6ec;--meter:#256abf;--meter-track:#dce8f8;--risk:#d03b3b;--risk-track:#f8dedd;--shadow:none}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:#fff;font-size:9.5pt;line-height:1.4}
+  .top,.foot,.back,.controls,.secnav,.noprint,.addcard,#tip,button,a.btn,details>summary{display:none!important}
+  main{max-width:none;padding:0}
+  a{color:inherit;text-decoration:none}
+  .printhead{display:flex;align-items:baseline;gap:14px;border-bottom:2px solid #141a26;padding-bottom:7px;margin-bottom:14px}
+  .ph-brand{font-size:13pt;font-weight:700;letter-spacing:-.01em}
+  .ph-kind{font-size:10pt;color:#4a5468}
+  .ph-meta{margin-left:auto;font-size:8.5pt;color:#5b6578}
+  h1{font-size:18pt}
+  h2{font-size:11pt;margin-bottom:8px}
+  .phead{margin-bottom:12px}
+  .sect{margin:16px 0 7px;font-size:10pt;color:#141a26;break-after:avoid;page-break-after:avoid}
+  .card,.tile,.band{box-shadow:none;border-color:#cfd4dc;border-radius:6px;padding:11px 13px;margin-bottom:10px;break-inside:avoid;page-break-inside:avoid}
+  .card:has(table){break-inside:auto;page-break-inside:auto}
+  .rcard,.hcard,.riskcard,.strip{break-inside:avoid!important;page-break-inside:avoid!important}
+  .strip{padding:0;grid-template-columns:repeat(4,1fr)!important}
+  .strip>div{padding:11px 13px;border-top:0!important;border-left:1px solid #e3e6ec!important}
+  .strip>div:first-child{border-left:0!important}
+  .stat .v,.rcard .v{font-size:17pt}
+  .tile .v{font-size:14pt}
+  .tiles{gap:8px;margin-bottom:10px}
+  .grid2{grid-template-columns:1fr 1fr!important;gap:10px;margin-bottom:10px}
+  .rgrid{grid-template-columns:1fr 1fr!important;gap:8px}
+  .rgrid.four,.bands{grid-template-columns:repeat(4,1fr)!important;gap:8px}
+  .risk{grid-template-columns:1fr 1fr!important}
+  .riskcard{grid-template-columns:1fr 1.5fr!important;gap:18px}
+  .scroll,.scroll.tall,.ptable{max-height:none!important;overflow:visible!important}
+  .ptable th,.ptable td:first-child,.scroll.tall th{position:static!important;box-shadow:none!important}
+  .ptable td:first-child,.ptable th:first-child{min-width:0}
+  table{font-size:8.5pt}
+  th,td{padding:4px 6px}
+  th{font-size:7.5pt}
+  thead{display:table-header-group}
+  tr{break-inside:avoid;page-break-inside:avoid}
+  .ptable table{font-size:7pt}
+  .ptable th{font-size:6.5pt;white-space:normal}
+  .ptable th,.ptable td{padding:3px 4px}
+  .src{font-size:7.5pt;margin-top:8px}
+  .small{font-size:8pt}
+  .callout{padding:8px 11px;margin-bottom:10px;break-inside:avoid}
+  .facts{gap:8px 18px}
+  .chip{font-size:7.5pt}
+  details{display:block}
+}

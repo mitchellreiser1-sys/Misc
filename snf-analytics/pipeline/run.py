@@ -14,9 +14,13 @@ import os
 import subprocess
 import sys
 
+import re
+
 from . import build as builder
-from . import validate
-from .sources import API, DATASETS
+from . import changes as changes_mod
+from . import extras, history, validate
+from .metrics import num
+from .sources import API, CATALOG, DATA_JSON, DATASETS, PBJ_TITLE, VBP_TITLE
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -60,6 +64,59 @@ def unchanged(meta, previous):
     return all(k in old and old[k]["modified"] == m["modified"] and old[k]["url"] == m["url"] for k, m in meta.items())
 
 
+def find_vbp():
+    """Latest fiscal year SNF VBP facility-level dataset, or None."""
+    best = None
+    for d in json.loads(_get(CATALOG)):
+        m = re.match(VBP_TITLE, d.get("title", ""))
+        if m and (best is None or int(m.group(1)) > best["fy"]):
+            url = d["distribution"][0]["downloadURL"]
+            best = {"fy": int(m.group(1)), "title": d["title"], "url": url, "file": url.rsplit("/", 1)[-1],
+                    "modified": d.get("modified"), "released": d.get("released")}
+    return best
+
+
+def find_pbj(period_start):
+    """PBJ daily staffing file for the calendar quarter starting on period_start (YYYY-MM-DD), or None.
+
+    CMS's catalog dates for these files are inconsistent, so the file is
+    matched on the quarter in its name (for example CY2026Q2). The quarter
+    inside the file and the reconciliation check then confirm it is the right one."""
+    y, m = int(period_start[:4]), int(period_start[5:7])
+    token = f"cy{y}q{(m - 1) // 3 + 1}"
+    for d in json.loads(_get(DATA_JSON)).get("dataset", []):
+        if not d.get("title", "").startswith(PBJ_TITLE):
+            continue
+        for dist in d.get("distribution", []):
+            url = dist.get("downloadURL") or ""
+            if url.lower().endswith(".csv") and token in url.lower().replace("_", ""):
+                return {"title": d["title"], "url": url, "file": url.rsplit("/", 1)[-1], "modified": dist.get("modified")}
+    return None
+
+
+def staffing_period(interval_rows):
+    for r in interval_rows:
+        if r["Measure Code"] == "STAFFING_LEVELS":
+            m, d, y = r["Data Collection Period From Date"].split("/")
+            return f"{y}-{m}-{d}", r["Data Collection Period From Date"] + " to " + r["Data Collection Period Through Date"]
+    return None, None
+
+
+def fetch_supplementary(kind, finder, raw, supp):
+    """Locate and download one supplementary file. Never raises: a failure
+    simply leaves that section out of the release."""
+    try:
+        m = finder()
+        if not m:
+            print(f"Supplementary source not found: {kind}")
+            return
+        print(f"Downloading {m['file']}")
+        m["sha256"] = _get(m["url"], os.path.join(raw, m["file"]))
+        supp[kind] = m
+    except Exception as e:
+        print(f"Supplementary source unavailable ({kind}): {e}")
+
+
 def load(path):
     with open(path, encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
@@ -81,6 +138,8 @@ def main(argv=None):
     ap.add_argument("--previous", help="manifest.json from the currently published site")
     ap.add_argument("--force", action="store_true", help="rebuild even if CMS has not published new files")
     ap.add_argument("--offline", action="store_true", help="reuse files already in the work folder")
+    ap.add_argument("--state-in", help="history.json.gz saved by the previous refresh")
+    ap.add_argument("--state-out", help="where to write the updated history.json.gz")
     args = ap.parse_args(argv)
 
     previous = None
@@ -119,6 +178,57 @@ def main(argv=None):
         m["rows"] = len(data[key])
 
     results = validate.run_all(headers, meta, data, previous)
+    extra = {}
+    if validate.passed(results):
+        # --- supplementary sources -------------------------------------------
+        supp_path = os.path.join(args.work, "supp.json")
+        period_start, period_label = staffing_period(data["intervals"])
+        if args.offline:
+            supp = json.load(open(supp_path)) if os.path.exists(supp_path) else {}
+        else:
+            supp = {}
+            fetch_supplementary("vbp", find_vbp, raw, supp)
+            if period_start:
+                fetch_supplementary("pbj", lambda: find_pbj(period_start), raw, supp)
+            with open(supp_path, "w") as f:
+                json.dump(supp, f, indent=1)
+
+        pbj = quarter = None
+        if "pbj" in supp:
+            pbj, quarter, _ = extras.read_pbj(os.path.join(raw, supp["pbj"]["file"]))
+        r = validate.check_pbj(data["provider"], pbj, quarter, period_label)
+        results.append(r)
+        if r["status"] == "pass":
+            extra["pbj"], extra["pbj_quarter"], extra["pbj_period"] = pbj, quarter, period_label
+
+        vbp = None
+        if "vbp" in supp:
+            vh, vrows = load(os.path.join(raw, supp["vbp"]["file"]))
+            if all(c in vh for c in extras.VBP_REQUIRED):
+                vbp = extras.vbp_by_ccn(vrows)
+                supp["vbp"]["rows"] = len(vrows)
+        r = validate.check_vbp(data["provider"], vbp, supp.get("vbp", {}).get("fy"))
+        results.append(r)
+        if r["status"] == "pass":
+            extra["vbp"], extra["vbp_fy"] = vbp, supp["vbp"]["fy"]
+
+        extra["cut_points"] = extras.parse_cut_points(data["cutpoints"])
+        results.append(validate.check_cut_points(data["provider"], extra["cut_points"]))
+        for k, m in supp.items():
+            meta["supp_" + k] = dict(m, id="", released=m.get("released"), next_update=None, rows=m.get("rows"))
+
+        # --- release history and change tracking -----------------------------
+        seed = os.path.join(HERE, "seed", "history.json.gz")
+        hist = history.load(args.state_in) or history.load(seed) or history.empty()
+        date = data["provider"][0]["Processing Date"]
+        snap = history.snapshot(data["provider"], data["health_def"])
+        results.append(validate.check_history_seed(snap, hist["snapshots"].get(date)))
+        history.add_release(hist, date, snap)
+        extra["history"] = hist
+        prev_date = history.previous_date(hist, date)
+        if prev_date:
+            items = changes_mod.diff(hist["snapshots"][prev_date], snap)
+            extra["changes"] = {"from": prev_date, "to": date, "summary": changes_mod.summarize(items), "items": items}
     for r in results:
         print(f"[{r['status'].upper():4}] {r['name']}: {r['detail']}")
     if not validate.passed(results):
@@ -128,7 +238,10 @@ def main(argv=None):
 
     built_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     manifest = builder.build(data, meta, results, os.path.join(HERE, "site"), args.out, built_at,
-                             os.environ.get("GITHUB_SHA", "local")[:7])
+                             os.environ.get("GITHUB_SHA", "local")[:7], extra)
+    if args.state_out and "history" in extra:
+        history.save(extra["history"], args.state_out)
+    set_output("new_release", "true" if not previous or previous.get("processing_date") != manifest["processing_date"] else "false")
     print(f"Built {manifest['facility_count']:,} facility reports for CMS release {manifest['processing_date']}.")
     set_output("changed", "true")
     set_output("release", manifest["processing_date"])

@@ -134,7 +134,31 @@ DATASETS = {
         "title": "State US Averages",
         "required": ["State or Nation", "Overall Rating", "Processing Date"],
     },
+    "survey_dates": {
+        "id": "svdt-c123",
+        "title": "Inspection Dates",
+        "required": [CCN, "Survey Date", "Type of Survey", "Survey Cycle", "Processing Date"],
+    },
+    "cutpoints": {
+        "id": "hicp-9999",
+        "title": "State-Level Health Inspection Cut Points",
+        "required": ["State", "5 Stars", "4 Stars", "3 Stars", "2 Stars", "1 Star"],
+    },
+    "intervals": {
+        "id": "qmdc-9999",
+        "title": "Nursing Home Data Collection Intervals",
+        "required": ["Measure Code", "Data Collection Period From Date", "Data Collection Period Through Date"],
+    },
 }
+
+# Supplementary sources. These are located by title because CMS issues a new
+# dataset for each period. If one is missing or its layout changes, the
+# section that depends on it is left out and the Data status page says so;
+# the core refresh is not blocked.
+CATALOG = "https://data.cms.gov/provider-data/api/1/metastore/schemas/dataset/items"
+VBP_TITLE = r"^FY (\d{4}) SNF VBP Facility-Level Dataset$"
+DATA_JSON = "https://data.cms.gov/data.json"
+PBJ_TITLE = "Payroll Based Journal Daily Nurse Staffing"
 
 # Footnote codes, verbatim from the CMS Nursing Home Data Dictionary (Table 15,
 # October 2026 edition). Unknown codes are shown as "Footnote <code>".

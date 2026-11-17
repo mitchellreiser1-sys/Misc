@@ -7,7 +7,7 @@
   // Column positions in data/index.json. Mirrors pipeline/build.py. Append only.
   var IX = { ccn: 0, name: 1, city: 2, state: 3, zip: 4, county: 5, chain: 6, overall: 7, beds: 8, sff: 9, abuse: 10,
     health: 11, staffing: 12, qm: 13, residents: 14, hprd: 15, rnHprd: 16, turnover: 17, c1defs: 18, weighted: 19,
-    fines: 20, fineTotal: 21, denials: 22, chow: 23, chainId: 24, harm: 25, jeopardy: 26 };
+    fines: 20, fineTotal: 21, denials: 22, chow: 23, chainId: 24, harm: 25, jeopardy: 26, risk: 27, repeats: 28 };
 
   function mean(values) {
     var v = values.filter(function (x) { return x != null; });
@@ -45,7 +45,9 @@
       oneStar: count(rows, function (r) { return r[IX.overall] === 1; }),
       fines: sum(rows, IX.fines), fineTotal: sum(rows, IX.fineTotal), denials: sum(rows, IX.denials),
       harm: sum(rows, IX.harm), jeopardy: sum(rows, IX.jeopardy),
-      facilitiesWithJeopardy: count(rows, function (r) { return r[IX.jeopardy] > 0; })
+      facilitiesWithJeopardy: count(rows, function (r) { return r[IX.jeopardy] > 0; }),
+      risk: mean(col(rows, IX.risk)),
+      repeats: sum(rows, IX.repeats)
     };
     ['overall', 'health', 'staffing', 'qm'].forEach(function (k) {
       out.ratings[k] = mean(col(rows, IX[k]));
@@ -67,7 +69,20 @@
     return out;
   }
 
-  var api = { IX: IX, summarize: summarize, parseCcns: parseCcns, mean: mean };
+  /* Lowest score that sits at or above a national percentile, from the
+     score-to-percentile table the pipeline publishes. */
+  function scoreAtPercentile(table, pct) {
+    var best = null;
+    Object.keys(table).forEach(function (s) {
+      if (table[s] >= pct && (best === null || +s < best)) best = +s;
+    });
+    return best;
+  }
+  function countAtOrAbove(rows, threshold) {
+    return threshold === null ? 0 : count(rows, function (r) { return r[IX.risk] != null && r[IX.risk] >= threshold; });
+  }
+
+  var api = { IX: IX, summarize: summarize, parseCcns: parseCcns, mean: mean, scoreAtPercentile: scoreAtPercentile, countAtOrAbove: countAtOrAbove };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Rollup = api;
 })(this);
