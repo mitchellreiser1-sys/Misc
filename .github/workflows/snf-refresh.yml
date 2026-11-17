@@ -1,0 +1,86 @@
+name: SNF Analytics refresh
+
+# Checks CMS daily. Publishes only when CMS has released new files and every
+# reconciliation gate passes. A failure leaves the published site untouched.
+on:
+  schedule:
+    - cron: "23 10 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Rebuild even if CMS has not published new files
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths: ["snf-analytics/**", ".github/workflows/snf-refresh.yml"]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+  issues: write
+
+concurrency:
+  group: snf-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    defaults:
+      run:
+        working-directory: snf-analytics
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Unit tests
+        run: python -m unittest discover -s tests
+
+      - name: Fetch the manifest of the currently published site
+        run: |
+          url=$(gh api "repos/${{ github.repository }}/pages" --jq .html_url 2>/dev/null || true)
+          if [ -n "$url" ]; then curl -fsSL "${url%/}/data/manifest.json" -o prev_manifest.json || rm -f prev_manifest.json; fi
+
+      - name: Download, validate, and build
+        id: build
+        run: |
+          force=""
+          if [ "${{ github.event_name }}" = "push" ] || [ "${{ inputs.force }}" = "true" ]; then force="--force"; fi
+          python -m pipeline.run --work work --out dist --previous prev_manifest.json $force
+
+      - name: Archive the raw CMS files for this release
+        if: steps.build.outputs.changed == 'true'
+        run: |
+          tag="cms-${{ steps.build.outputs.release }}"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            (cd work && zip -q -r "../$tag.zip" raw meta.json)
+            gh release create "$tag" "$tag.zip" --title "CMS raw files, processing date ${{ steps.build.outputs.release }}" \
+              --notes "Unmodified CMS Provider Data Catalog files used to build the site, with download metadata and SHA-256 hashes in meta.json."
+          fi
+
+      - uses: actions/configure-pages@v5
+        if: steps.build.outputs.changed == 'true'
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.build.outputs.changed == 'true'
+        with:
+          path: snf-analytics/dist
+      - uses: actions/deploy-pages@v4
+        if: steps.build.outputs.changed == 'true'
+        id: deploy
+
+      - name: Open an issue when the refresh fails
+        if: failure()
+        run: |
+          title="SNF Analytics refresh failed"
+          if [ -z "$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number')" ]; then
+            gh issue create --title "$title" --body "The refresh did not publish. The site is still showing the last release that passed every check. Run log: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          fi
