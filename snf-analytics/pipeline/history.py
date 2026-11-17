@@ -10,36 +10,53 @@ from .metrics import num
 from .sources import CCN
 
 FIELDS = ["overall", "health", "staffing", "qm", "sff", "abuse", "chow", "weighted",
-          "fines", "fine_total", "denials", "ij", "harm", "beds"]
+          "fines", "fine_total", "denials", "ij", "harm", "beds",
+          "ij1", "ij2", "ij3", "harm1", "harm2", "harm3", "repeat_severe", "turnover"]
 F = {name: i for i, name in enumerate(FIELDS)}
 MAX_RELEASES = 48
 SFF_CODES = {"": 0, "SFF Candidate": 1, "SFF": 2}
 
 
 def severity_counts(health_def_rows):
-    """Health citations at immediate jeopardy (J-L) and actual harm (G-I) per facility."""
-    ij, harm = {}, {}
+    """Per facility: immediate jeopardy (J-L) and actual harm (G-I) health
+    citations by inspection cycle, and the number of tags cited at G or
+    higher in more than one cycle. Returns {ccn: {"ij": [c1, c2, c3],
+    "harm": [c1, c2, c3], "repeat_severe": n}}."""
+    out, tags = {}, {}
     for d in health_def_rows:
         code = d["Scope Severity Code"]
-        if code in ("J", "K", "L"):
-            ij[d[CCN]] = ij.get(d[CCN], 0) + 1
-        elif code in ("G", "H", "I"):
-            harm[d[CCN]] = harm.get(d[CCN], 0) + 1
-    return ij, harm
+        if code not in "GHIJKL" or not code:
+            continue
+        try:
+            k = int(d["Inspection Cycle"]) - 1
+        except (TypeError, ValueError):
+            continue
+        if not 0 <= k <= 2:
+            continue
+        c = out.setdefault(d[CCN], {"ij": [0, 0, 0], "harm": [0, 0, 0], "repeat_severe": 0})
+        c["ij" if code in "JKL" else "harm"][k] += 1
+        tags.setdefault(d[CCN], {}).setdefault(d["Deficiency Prefix"] + d["Deficiency Tag Number"], set()).add(k)
+    for ccn, t in tags.items():
+        out[ccn]["repeat_severe"] = sum(1 for cycles in t.values() if len(cycles) > 1)
+    return out
 
 
 def snapshot(provider_rows, health_def_rows):
-    ij, harm = severity_counts(health_def_rows)
+    sev = severity_counts(health_def_rows)
+    none = {"ij": [0, 0, 0], "harm": [0, 0, 0], "repeat_severe": 0}
     snap = {}
     for p in provider_rows:
         c = p[CCN]
+        s = sev.get(c, none)
         snap[c] = [
             num(p["Overall Rating"]), num(p["Health Inspection Rating"]), num(p["Staffing Rating"]), num(p["QM Rating"]),
             SFF_CODES.get(p["Special Focus Status"].strip(), 0), 1 if p["Abuse Icon"] == "Y" else 0,
             1 if p["Provider Changed Ownership in Last 12 Months"] == "Y" else 0,
             num(p["Total Weighted Health Survey Score"]), num(p["Number of Fines"]) or 0,
             num(p["Total Amount of Fines in Dollars"]) or 0, num(p["Number of Payment Denials"]) or 0,
-            ij.get(c, 0), harm.get(c, 0), num(p["Number of Certified Beds"]),
+            sum(s["ij"]), sum(s["harm"]), num(p["Number of Certified Beds"]),
+            s["ij"][0], s["ij"][1], s["ij"][2], s["harm"][0], s["harm"][1], s["harm"][2], s["repeat_severe"],
+            num(p.get("Total nursing staff turnover")),
         ]
     return snap
 
@@ -54,7 +71,9 @@ def load(path):
     with gzip.open(path, "rt", encoding="utf-8") as f:
         h = json.load(f)
     if h.get("fields") != FIELDS:
-        raise ValueError("History file has a different field layout than this pipeline expects.")
+        # Written by an older pipeline version. The caller falls back to the seed.
+        print(f"History file {path} has an older field layout and was not used.")
+        return None
     return h
 
 

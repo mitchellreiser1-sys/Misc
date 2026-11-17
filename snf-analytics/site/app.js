@@ -228,9 +228,9 @@
       '<div class="meter risk-meter" role="img" aria-label="Risk score ' + RK.score + ' of 100"><i style="width:' + RK.score + '%"></i></div>' +
       '<div class="s">Higher than ' + RK.pct_us + '% of facilities nationally and ' + RK.pct_state + '% in ' + esc(f.state) + '. An internal Bravo judgment, not a CMS figure. <a href="#/risk">How it works</a></div></div></div>' +
       '<div class="rk-parts">' + (parts.length ? '<table><thead><tr><th>What contributes</th><th class="n">Points</th></tr></thead><tbody>' + parts.map(function (c) {
-        return '<tr><td>' + esc(c[1]) + '<div class="muted small">' + esc(c[2]) + '</div></td><td class="n strong">' + RK.parts[c[0]] + '</td></tr>';
+        return '<tr><td>' + esc(c[1]) + '<div class="muted small">' + esc(c[2]) + (c[0] === 'survey' && RK.survey_pct != null ? '. This facility\'s score is worse than ' + RK.survey_pct + '% of facilities.' : '') + '</div></td><td class="n strong">' + RK.parts[c[0]] + '</td></tr>';
       }).join('') + '</tbody></table>' : '<p class="muted" style="margin:0">No component of the score applies to this facility.</p>') +
-      (RK.year_ago_date ? '<p class="src">Rating trend compares the current overall rating with ' + fdate(RK.year_ago_date) + (RK.year_ago == null ? ' (not rated then)' : ' (' + RK.year_ago + (RK.year_ago === 1 ? ' star' : ' stars') + ')') + '.</p>' : '') + '</div></div>';
+      '</div></div>';
     h += '<div class="sect" id="sec-risk"><span>Risk snapshot</span></div>' + riskCard + '<div class="card strip">' +
       rstat('Immediate jeopardy citations', ij, 'Health, scope and severity J to L, last 3 cycles') +
       rstat('Actual harm citations', harm, 'Health, scope and severity G to I, last 3 cycles') +
@@ -1172,30 +1172,65 @@
 
   /* ---------- Risk score methodology ---------- */
   function renderRisk() {
-    var R = S.lookups.risk, pc = function (v) { return fmt(v * 100, 1) + '%'; };
+    var R = S.lookups.risk, V = R.validation, pc = function (v, d) { return fmt(v * 100, d == null ? 1 : d) + '%'; };
     var p90 = Rollup.scoreAtPercentile(R.us_percentiles, 90), p75 = Rollup.scoreAtPercentile(R.us_percentiles, 75), p50 = Rollup.scoreAtPercentile(R.us_percentiles, 50);
-    app.innerHTML = printHead('Risk score methodology') + '<div class="phead"><div><h1>Bravo risk score</h1><div class="sub">' + esc(R.version) + ' · an internal Bravo judgment, not a CMS figure</div></div><div class="controls"><button onclick="window.print()">Print / PDF</button></div></div>' +
-      '<div class="card"><h2>What it is</h2><p style="margin-top:0">A points score from 0 to 100 where higher means more regulatory risk. Every input is a value CMS publishes or a simple count of published records, and every facility report shows the points behind its score. The weights below are a first draft and are meant to be reviewed and adjusted.</p>' +
-      '<p class="muted" style="margin-bottom:0">In the current release the median facility scores ' + p50 + ', the top quarter starts at ' + p75 + ', and the top 10% starts at ' + p90 + '.</p></div>' +
-      '<div class="card"><h2>How points are assigned</h2><div class="scroll"><table><thead><tr><th>Component</th><th>Points</th></tr></thead><tbody>' +
+    var h = printHead('Risk score methodology') + '<div class="phead"><div><h1>Bravo risk score</h1><div class="sub">' + esc(R.version) + ' · an internal Bravo judgment, not a CMS figure</div></div><div class="controls"><button onclick="window.print()">Print / PDF</button></div></div>' +
+      '<div class="card"><h2>What it is</h2><p style="margin-top:0">A points score from 0 to 100 where higher means more regulatory risk. Every input is a value CMS publishes or a simple count of published records, and every facility report shows the points behind its score.</p>' +
+      '<p style="margin-bottom:0">It is a screening aid: it shows where to look first. It measures regulatory risk only. It has not been tested against credit outcomes such as defaults or operating losses, and it should not be used alone in a credit decision or a lender narrative.</p>' +
+      '<p class="muted" style="margin-bottom:0">In the current release the median facility scores ' + p50 + ', the top quarter starts at ' + p75 + ', and the top 10% starts at ' + p90 + '.</p></div>';
+
+    h += '<div class="card"><h2>How points are assigned</h2><div class="scroll"><table><thead><tr><th>Component</th><th>Points</th></tr></thead><tbody>' +
       R.components.map(function (c) { return '<tr><td class="strong">' + esc(c[1]) + '</td><td>' + esc(c[2]) + '</td></tr>'; }).join('') +
-      '</tbody></table></div><p class="src">The total is capped at 100. Contract staffing uses the daily Payroll Based Journal file and is left out when that file is unavailable.</p></div>' +
-      '<div class="card"><h2>Does it work: backtest</h2><p style="margin-top:0">Each facility was scored using only what CMS had published on the earlier date, then checked about 12 months later for a serious regulatory event: additional immediate jeopardy citations, a new payment denial, or new SFF or SFF candidate status.</p>' +
-      (R.backtest && R.backtest.length ? R.backtest.map(function (b) {
-        return '<h2 style="margin-top:18px;font-size:14px">Scored ' + fdate(b.as_of) + ', outcomes through ' + fdate(b.later) + ' <span class="muted" style="font-weight:400">· ' + b.facilities.toLocaleString() + ' facilities</span></h2><div class="scroll"><table><thead><tr><th>Group</th><th class="n">Score range</th><th class="n">Facilities</th><th class="n">Had a serious event</th><th class="n">Overall rating fell</th></tr></thead><tbody>' +
-          b.rows.map(function (r) { return '<tr><td>' + esc(r[0]) + '</td><td class="n">' + r[4] + ' to ' + r[5] + '</td><td class="n">' + r[1].toLocaleString() + '</td><td class="n strong">' + pc(r[2]) + '</td><td class="n">' + pc(r[3]) + '</td></tr>'; }).join('') + '</tbody></table></div>';
-      }).join('') : '<p>Not enough release history is on hand to run a backtest.</p>') +
-      '<h2 style="margin-top:20px">How to read it</h2><ul style="margin:0;padding-left:18px">' +
-      '<li>' + (function () {
-        var ratios = (R.backtest || []).map(function (b) { return b.rows[0][2] ? b.rows[3][2] / b.rows[0][2] : null; }).filter(function (x) { return x != null; });
-        if (!ratios.length) return 'No backtest periods are available yet.';
-        var lo = Math.min.apply(null, ratios), hi = Math.max.apply(null, ratios);
-        return 'Facilities in the highest quarter of scores went on to have a serious regulatory event ' + (lo.toFixed(1) === hi.toFixed(1) ? lo.toFixed(1) : lo.toFixed(1) + ' to ' + hi.toFixed(1)) + ' times as often as those in the lowest quarter, across the ' + ratios.length + (ratios.length === 1 ? ' period' : ' periods') + ' tested.';
-      })() + '</li>' +
-      '<li>The score does not predict star rating declines. Low-rated facilities have little room to fall, so declines are more common among facilities that start with higher ratings and lower scores.</li>' +
-      '<li>The backtest uses a reduced form of the score: repeat citations, turnover, contract staffing, and the rating trend are not stored in the release history, so they are not tested here.</li>' +
-      '<li>New immediate jeopardy citations are undercounted, because older citations roll out of CMS\'s three-cycle window as new ones arrive.</li>' +
-      '<li>A high score is a prompt for diligence, not a conclusion about credit quality.</li></ul></div>';
+      '</tbody></table></div><p class="src">The total is capped at 100. Older inspection cycles count less. Contract staffing and RN coverage use the daily Payroll Based Journal file and are left out when that file is unavailable. A facility with no published survey score gets no survey points.</p></div>';
+
+    if (V) {
+      var avgAuc = V.pooled_auc, cms = V.pooled_auc_cms;
+      h += '<div class="sect"><span>How well it works <span class="muted" style="font-weight:400">· validation study run ' + fdate(V.run_date) + '</span></span></div>' +
+        '<div class="card"><p style="margin-top:0">Every facility was scored using only what CMS had published on October 1 of three different years. The following 12 months were then checked for a serious regulatory event: an immediate jeopardy citation or payment denial dated in that period, or new SFF or SFF candidate status.</p>' +
+        '<div class="tiles" style="margin-bottom:6px">' +
+        '<div class="tile"><div class="k">Ranking accuracy</div><div class="v">' + pc(avgAuc, 0) + '</div><div class="s">Given one facility that had an event and one that did not, the score ranks the event facility higher this often. 50% is a coin flip, 100% is perfect.</div></div>' +
+        '<div class="tile"><div class="k">CMS weighted health score alone</div><div class="v">' + pc(cms, 0) + '</div><div class="s">The same test using only CMS\'s published survey score.</div></div>' +
+        (V.prior_version ? '<div class="tile"><div class="k">Previous version (' + esc(V.prior_version.name) + ')</div><div class="v">' + pc(V.prior_version.pooled_auc, 0) + '</div><div class="s">The same test on the earlier scoring rules.</div></div>' : '') +
+        '</div></div>';
+
+      h += '<div class="card"><h2>Share of facilities with a serious event in the next 12 months, by score</h2><div class="scroll"><table><thead><tr><th>Score</th>' +
+        V.years.map(function (y) { return '<th class="n">Scored ' + fdate(y.as_of) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+        V.years[0].bands.map(function (b, i) {
+          return '<tr><td>' + b[0] + ' to ' + b[1] + '</td>' + V.years.map(function (y) { return '<td class="n"><span class="strong">' + pc(y.bands[i][3]) + '</span> <span class="muted small">of ' + y.bands[i][2].toLocaleString() + '</span></td>'; }).join('') + '</tr>';
+        }).join('') +
+        '<tr class="total"><td>All facilities</td>' + V.years.map(function (y) { return '<td class="n">' + pc(y.event_rate) + ' <span class="muted small" style="font-weight:400">of ' + y.facilities.toLocaleString() + '</span></td>'; }).join('') + '</tr>' +
+        '</tbody></table></div>' +
+        '<div class="scroll" style="margin-top:16px"><table><thead><tr><th>Scoring date</th><th class="n">Ranking accuracy</th><th class="n">CMS score alone</th><th class="n">Events found in the top 10% of scores</th><th class="n">Event rate in the top 10%</th><th class="n">Event rate in the lowest 20%</th></tr></thead><tbody>' +
+        V.years.map(function (y) { return '<tr><td>' + fdate(y.as_of) + '</td><td class="n strong">' + pc(y.auc) + '</td><td class="n">' + pc(y.auc_cms) + '</td><td class="n">' + pc(y.top10_share, 0) + '</td><td class="n">' + pc(y.top10_rate, 0) + '</td><td class="n">' + pc(y.bottom20_rate) + '</td></tr>'; }).join('') +
+        '</tbody></table></div></div>';
+
+      var comps = V.components.slice().sort(function (a, b) { return a.auc_without - b.auc_without; });
+      h += '<div class="card"><h2>What each component contributes</h2><div class="scroll"><table><thead><tr><th>Component</th><th class="n">Facilities it applies to</th><th class="n">Event rate when it applies</th><th class="n">Event rate when it does not</th><th class="n">Accuracy lost if removed</th></tr></thead><tbody>' +
+        comps.map(function (c) {
+          var lost = -c.auc_without * 100;
+          return '<tr><td class="strong">' + esc(c.label) + '</td><td class="n">' + pc(c.applies) + '</td><td class="n">' + (c.rate_with == null ? NA : pc(c.rate_with)) + '</td><td class="n">' + (c.rate_without == null ? NA : pc(c.rate_without)) + '</td><td class="n">' + (lost >= 0.05 ? fmt(lost, 1) + ' points' : '<span class="muted">None</span>') + '</td></tr>';
+        }).join('') + '</tbody></table></div>' +
+        '<p class="src">"Accuracy lost if removed" is the drop in ranking accuracy, in percentage points, when that component is taken out of the score. Components showing "None" still mark higher-risk facilities, but the survey score, staffing, and penalties already capture most of what they add. They are kept because the status itself matters to a lender.</p></div>';
+
+      h += '<div class="card"><h2>How to read it</h2><ul style="margin:0;padding-left:18px">' +
+        '<li><b>It sorts well, but it is not a forecast for one facility.</b> About ' + pc(1 - V.years[V.years.length - 1].top10_rate, 0) + ' of facilities in the top 10% of scores had no serious event in the following year, and most events happened outside the top 10%.</li>' +
+        '<li><b>It is modestly better than CMS\'s own survey score.</b> Most of its power comes from that score plus staffing and penalties.</li>' +
+        '<li><b>It measures regulatory risk.</b> It has not been tested against financial or credit outcomes.</li>' +
+        '<li><b>Special Focus points are a judgment.</b> SFF and SFF candidate status carry 25 and 15 points because the status matters to HUD and to a lender. In the test, changing those points up or down did not change the ranking accuracy, because few facilities have the status and their survey scores already place them near the top.</li>' +
+        '<li><b>Older citations count less.</b> Facilities whose most recent immediate jeopardy citation was in the latest inspection cycle had later events more often than those whose only such citation was in an older cycle.</li>' +
+        '<li><b>The rating trend was removed.</b> Facilities with a recent star decline had later events at the same rate as everyone else.</li></ul></div>';
+    } else {
+      h += '<div class="card"><h2>How well it works</h2><p style="margin:0">No validation study is on file for ' + esc(R.version) + '. The score should be treated as untested until one is run.</p></div>';
+    }
+
+    if (R.backtest && R.backtest.length) {
+      h += '<div class="card"><h2>Ongoing check</h2><p style="margin-top:0" class="muted">Rerun at every refresh from the release history. It compares two releases about a year apart, which is a rougher measure than the dated study above: older events roll out of CMS\'s reporting windows, so events are undercounted. Contract staffing and RN coverage are not in the history and are left out.</p>' +
+        R.backtest.map(function (b) {
+          return '<h2 style="margin-top:16px;font-size:14px">Scored ' + fdate(b.as_of) + ', compared with ' + fdate(b.later) + ' <span class="muted" style="font-weight:400">· ' + b.facilities.toLocaleString() + ' facilities</span></h2><div class="scroll"><table><thead><tr><th>Group</th><th class="n">Score range</th><th class="n">Facilities</th><th class="n">Had a serious event</th></tr></thead><tbody>' +
+            b.rows.map(function (r) { return '<tr><td>' + esc(r[0]) + '</td><td class="n">' + r[3] + ' to ' + r[4] + '</td><td class="n">' + r[1].toLocaleString() + '</td><td class="n strong">' + pc(r[2]) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+        }).join('') + '</div>';
+    }
+    app.innerHTML = h;
     setPrintFooter('Bravo Capital · SNF Analytics · Bravo risk score methodology · ' + R.version);
     window.scrollTo(0, 0);
   }

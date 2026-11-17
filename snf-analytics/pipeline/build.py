@@ -43,19 +43,14 @@ def _write(path, obj):
         json.dump(obj, f, separators=(",", ":"), ensure_ascii=False)
 
 
-def _year_ago_overall(hist, date, ccn):
-    """Published overall rating from the release closest to 12 months earlier (9 to 15 months back)."""
-    y, m = int(date[:4]), int(date[5:7])
-    target = (y - 1) * 12 + m
-    best = None
-    for d in history_mod.dates(hist):
-        gap = abs(int(d[:4]) * 12 + int(d[5:7]) - target)
-        if gap <= 3 and (best is None or gap < best[0]):
-            best = (gap, d)
-    if not best:
-        return None, None
-    row = hist["snapshots"][best[1]].get(ccn)
-    return (row[HF["overall"]] if row else None), best[1]
+def _risk_validation(site_src):
+    """The dated validation study for the current score version, if it matches."""
+    path = os.path.join(os.path.dirname(os.path.abspath(site_src)), "seed", "risk_validation.json")
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as f:
+        v = json.load(f)
+    return v if v.get("version") == risk_mod.VERSION else None
 
 
 def build(data, meta, results, site_src, out_dir, built_at, pipeline_version, extra=None):
@@ -126,6 +121,10 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version, ex
     owners, pens = _group(data["ownership"]), _group(data["penalties"])
     survey_dates = _group(data["survey_dates"])
 
+    # National position of each facility's weighted health survey score (risk score input)
+    survey_share = risk_mod.lower_share([v for v in (num(p["Total Weighted Health Survey Score"]) for p in providers) if v is not None])
+    severity = history_mod.severity_counts(data["health_def"])
+    no_severe = {"ij": [0, 0, 0], "harm": [0, 0, 0], "repeat_severe": 0}
     index, chains, facs = [], {}, []
     for p in providers:
         ccn = p[CCN]
@@ -153,14 +152,17 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version, ex
         harm = sum(1 for d in defs if d[1] == "H" and d[3] in "GHI")
         jeopardy = sum(1 for d in defs if d[1] == "H" and d[3] in "JKL")
         pm = extras.pbj_metrics(pbj.get(ccn)) if pbj else None
-        year_ago, year_ago_date = _year_ago_overall(hist, release_date, ccn) if hist else (None, None)
         sff_code = history_mod.SFF_CODES.get(p["Special Focus Status"].strip(), 0)
+        sev = severity.get(ccn, no_severe)
+        weighted = num(p["Total Weighted Health Survey Score"])
         rscore, rparts = risk_mod.score(
-            ij=jeopardy, harm=harm, repeat=len(repeats), sff=sff_code, abuse=p["Abuse Icon"] == "Y",
-            health=r_health, staffing=r_staff, turnover=num(p["Total nursing staff turnover"]),
-            contract_share=pm["contract_share"] if pm else None,
-            fine_total=num(p["Total Amount of Fines in Dollars"]) or 0, denials=num(p["Number of Payment Denials"]) or 0,
-            overall_now=r_overall, overall_year_ago=year_ago)
+            survey_pct=survey_share.get(weighted) if weighted is not None else None,
+            ij_cycles=sev["ij"], harm_cycles=sev["harm"], repeat_severe=sev["repeat_severe"],
+            sff=sff_code, abuse=p["Abuse Icon"] == "Y", staffing=r_staff,
+            turnover=num(p["Total nursing staff turnover"]),
+            contract_share=pm["contract_share"] if pm else None, zero_rn_days=pm["zero_rn_days"] if pm else None,
+            denials=num(p["Number of Payment Denials"]) or 0, fine_total=num(p["Total Amount of Fines in Dollars"]) or 0,
+            qm=r_qm, chow=p["Provider Changed Ownership in Last 12 Months"] == "Y")
         thresholds = cut_points.get(p["State"])
 
         fac = {
@@ -238,7 +240,8 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version, ex
                     "pos": extras.band_position(num(p["Total Weighted Health Survey Score"]), thresholds)} if thresholds else None,
             "pbj": pm,
             "vbp": vbp.get(ccn) if vbp else None,
-            "risk": {"score": rscore, "parts": rparts, "year_ago": year_ago, "year_ago_date": year_ago_date},
+            "risk": {"score": rscore, "parts": rparts,
+                     "survey_pct": round(100 * survey_share[weighted]) if weighted is not None else None},
         }
         facs.append(fac)
         # Column order is mirrored in site/app.js (IX). Append only.
@@ -312,7 +315,7 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version, ex
            {"descs": descs, "measures": measures, "benchmarks": benchmarks, "footnotes": FOOTNOTES,
             "chains": chains,
             "risk": {"version": risk_mod.VERSION, "components": risk_mod.COMPONENTS, "backtest": backtest,
-                     "us_percentiles": us_pct},
+                     "us_percentiles": us_pct, "validation": _risk_validation(site_src)},
             "pbj": {"quarter": extra.get("pbj_quarter"), "period": extra.get("pbj_period")} if pbj else None,
             "vbp_fy": extra.get("vbp_fy"),
             "history_releases": len(history_mod.dates(hist)) if hist else 0})

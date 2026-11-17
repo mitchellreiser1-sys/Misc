@@ -6,7 +6,7 @@ from pipeline.sources import CCN
 
 
 def row(**kw):
-    r = [3, 3, 3, 3, 0, 0, 0, 20.0, 0, 0, 0, 0, 0, 100]
+    r = [3, 3, 3, 3, 0, 0, 0, 20.0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, None]
     for k, v in kw.items():
         r[F[k]] = v
     return r
@@ -104,10 +104,18 @@ class History(unittest.TestCase):
              "Special Focus Status": "SFF Candidate", "Abuse Icon": "Y", "Provider Changed Ownership in Last 12 Months": "N",
              "Total Weighted Health Survey Score": "44.000", "Number of Fines": "2", "Total Amount of Fines in Dollars": "650.00",
              "Number of Payment Denials": "", "Number of Certified Beds": "57"}
-        defs = [{CCN: "1", "Scope Severity Code": c} for c in "JKDGG"]
+        p["Total nursing staff turnover"] = "41.8"
+        mk = lambda code, cycle, tag: {CCN: "1", "Scope Severity Code": code, "Inspection Cycle": cycle,
+                                       "Deficiency Prefix": "F", "Deficiency Tag Number": tag}
+        defs = [mk("J", "1", "0600"), mk("K", "2", "0600"), mk("D", "1", "0880"), mk("D", "2", "0880"),
+                mk("G", "3", "0689"), mk("G", "3", "0700"), mk("", "1", "0999")]
         snap = history.snapshot([p], defs)["1"]
         self.assertEqual(snap[F["ij"]], 2)
         self.assertEqual(snap[F["harm"]], 2)
+        self.assertEqual((snap[F["ij1"]], snap[F["ij2"]], snap[F["ij3"]]), (1, 1, 0))
+        self.assertEqual((snap[F["harm1"]], snap[F["harm2"]], snap[F["harm3"]]), (0, 0, 2))
+        self.assertEqual(snap[F["repeat_severe"]], 1)      # F0600 at J then K; F0880 repeats only at D
+        self.assertEqual(snap[F["turnover"]], 41.8)
         self.assertEqual(snap[F["sff"]], 1)
         self.assertIsNone(snap[F["health"]])
         self.assertEqual(snap[F["denials"]], 0)
@@ -131,6 +139,16 @@ class Changes(unittest.TestCase):
         s = changes.summarize(changes.diff(prev, cur))
         self.assertEqual((s["up"], s["down"]), (0, 1))
 
+    def test_old_history_layout_falls_back(self):
+        import gzip, json, os, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "h.json.gz")
+            with gzip.open(path, "wt") as f:
+                json.dump({"fields": ["overall"], "snapshots": {}}, f)
+            self.assertIsNone(history.load(path))
+            history.save(history.empty(), path)
+            self.assertEqual(history.load(path)["fields"], history.FIELDS)
+
     def test_no_change_is_empty_and_decreases_are_not_events(self):
         self.assertEqual(changes.diff({"a": row()}, {"a": row()}), [])
         self.assertEqual(changes.diff({"a": row(ij=3, fines=2, denials=1, chow=1)}, {"a": row()}), [])
@@ -138,26 +156,55 @@ class Changes(unittest.TestCase):
 
 class Risk(unittest.TestCase):
     def test_clean_facility_scores_zero(self):
-        self.assertEqual(risk.score(health=4, staffing=4)[0], 0)
+        self.assertEqual(risk.score(survey_pct=0.0, staffing=4, qm=4)[0], 0)
+        self.assertEqual(risk.score()[0], 0)
 
-    def test_components_and_caps(self):
-        total, p = risk.score(ij=5, harm=9, repeat=9, sff=2, abuse=True, health=1, staffing=1, turnover=61,
-                              contract_share=0.21, fine_total=150000, denials=1, overall_now=1, overall_year_ago=3)
-        self.assertEqual(p, {"ij": 24, "harm": 12, "repeat": 10, "sff": 15, "abuse": 8, "health": 10, "staffing": 8,
-                             "turnover": 4, "contract": 3, "penalties": 10, "trend": 5})
+    def test_older_citations_count_less(self):
+        self.assertEqual(risk.score(ij_cycles=(1, 0, 0))[1]["ij"], 4)
+        self.assertEqual(risk.score(ij_cycles=(0, 1, 0))[1]["ij"], 2)
+        self.assertEqual(risk.score(ij_cycles=(0, 0, 1))[1]["ij"], 1)
+        self.assertEqual(risk.score(ij_cycles=(9, 9, 9))[1]["ij"], 14)
+        self.assertEqual(risk.score(harm_cycles=(1, 0, 0))[1]["harm"], 2)
+        self.assertEqual(risk.score(harm_cycles=(0, 1, 0))[1]["harm"], 1)
+        self.assertEqual(risk.score(harm_cycles=(0, 0, 1))[1]["harm"], 1)   # 0.5 rounds half up
+        self.assertEqual(risk.score(harm_cycles=(0, 0, 2))[1]["harm"], 1)
+        self.assertEqual(risk.score(harm_cycles=(9, 9, 9))[1]["harm"], 8)
+
+    def test_components_and_cap(self):
+        total, p = risk.score(survey_pct=1.0, ij_cycles=(5, 0, 0), harm_cycles=(5, 0, 0), repeat_severe=2, sff=2, abuse=True,
+                              staffing=1, turnover=61, contract_share=0.21, zero_rn_days=3, denials=1, fine_total=25000,
+                              qm=2, chow=True)
+        self.assertEqual(p, {"survey": 30, "staffing": 16, "penalties": 19, "sff": 25, "ij": 14, "harm": 8, "repeat": 5,
+                             "chow": 6, "abuse": 4, "qm": 4, "turnover": 3, "contract": 2, "rn": 2})
         self.assertEqual(total, 100)
-        self.assertEqual(risk.score(ij=1)[0], 8)
-        self.assertEqual(risk.score(sff=1)[1]["sff"], 10)
-        self.assertEqual(risk.score(fine_total=25000)[1]["penalties"], 3)
-        self.assertEqual(risk.score(turnover=60, contract_share=0.20)[0], 0)
-        self.assertEqual(risk.score(overall_now=3, overall_year_ago=None)[1]["trend"], 0)
-        self.assertEqual(risk.score(overall_now=4, overall_year_ago=3)[1]["trend"], 0)
+        self.assertEqual(risk.score(sff=1)[1]["sff"], 15)
+        self.assertEqual(risk.score(staffing=2)[1]["staffing"], 8)
+        self.assertEqual(risk.score(fine_total=24999)[1]["penalties"], 6)
+        self.assertEqual(risk.score(survey_pct=0.5)[1]["survey"], 15)
+        self.assertEqual(risk.score(survey_pct=None)[1]["survey"], 0)
+        self.assertEqual(risk.score(turnover=60, contract_share=0.20, zero_rn_days=0, qm=3)[0], 0)
 
     def test_every_component_is_documented(self):
         self.assertEqual({c[0] for c in risk.COMPONENTS}, set(risk.score()[1]))
 
-    def test_percentiles(self):
+    def test_percentiles_and_lower_share(self):
         self.assertEqual(risk.percentiles([0, 0, 10, 20]), {0: 0, 10: 50, 20: 75})
+        self.assertEqual(risk.lower_share([5.0, 5.0, 9.0, 20.0]), {5.0: 0.0, 9.0: 0.5, 20.0: 0.75})
+
+    def test_scoring_from_history_row(self):
+        r = row(staffing=1, sff=1, ij1=1, harm2=1, repeat_severe=1, denials=1, fine_total=500, chow=1, turnover=70.0, qm=1)
+        total, p = risk.score_snapshot_row(r, 0.5)
+        self.assertEqual(total, 15 + 16 + 15 + 15 + 4 + 1 + 5 + 6 + 3 + 4)
+        self.assertEqual((p["contract"], p["rn"]), (0, 0))
+
+    def test_backtest_runs_on_history(self):
+        a = {str(i): row(weighted=float(i), staffing=1 if i % 2 else 4) for i in range(200)}
+        b = {k: row(ij=1 if int(k) >= 150 else 0) for k in a}
+        bt = risk.backtest({"2025-10-01": a, "2026-10-01": b}, "2025-10-01", "2026-10-01")
+        self.assertEqual(bt["facilities"], 200)
+        self.assertEqual(len(bt["rows"]), 4)
+        self.assertGreater(bt["rows"][3][2], bt["rows"][0][2])
+        self.assertIsNone(risk.backtest({"a": {"1": row()}, "b": {"1": row()}}, "a", "b"))
 
 
 class SupplementaryChecks(unittest.TestCase):
