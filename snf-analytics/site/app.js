@@ -501,6 +501,26 @@
     drawChains();
   }
 
+  /* Open a link of the form #/import/<name>/<ccns> to save a named portfolio in
+     this browser in one step. The part of a web address after # is never sent
+     to the server, so the name stays on this device. Opening the same link
+     twice does not create a duplicate. */
+  function importPortfolio(rest) {
+    var i = rest.indexOf('/');
+    var name = '', ccns = [];
+    try { name = decodeURIComponent(i === -1 ? rest : rest.slice(0, i)).trim(); } catch (e) { name = ''; }
+    if (i !== -1) ccns = Rollup.parseCcns(decodeURIComponent(rest.slice(i + 1)));
+    if (!name || !ccns.length) {
+      app.innerHTML = '<a class="back" href="#/portfolios">← All portfolios</a><div class="card"><h1>This link is incomplete</h1><p>It needs a portfolio name and at least one CCN.</p></div>';
+      return;
+    }
+    var key = ccns.slice().sort().join(',');
+    var existing = loadPortfolios().filter(function (p) { return p.name === name && p.ccns.slice().sort().join(',') === key; })[0];
+    var p = existing || createPortfolio(name, ccns);
+    if (!p) { drawPortfolio({ title: name, ccns: ccns }); return; }   // storage unavailable: show it unsaved
+    location.replace('#/portfolio/' + p.id);
+  }
+
   function renderSaved(id) {
     var p = loadPortfolios().filter(function (x) { return x.id === id; })[0];
     if (!p) { app.innerHTML = '<a class="back" href="#/portfolios">← Portfolios</a><div class="card"><h1>Portfolio not found</h1><p>This portfolio is not saved in this browser.</p></div>'; return; }
@@ -1243,6 +1263,7 @@
     else if (h === 'portfolios') renderPortfolios();
     else if (h.indexOf('portfolio/') === 0) renderSaved(decodeURIComponent(h.slice(10)));
     else if (h.indexOf('p/') === 0) drawPortfolio({ title: 'Portfolio', ccns: Rollup.parseCcns(decodeURIComponent(h.slice(2))) });
+    else if (h.indexOf('import/') === 0) importPortfolio(h.slice(7));
     else if (h.indexOf('chain/') === 0) renderChain(decodeURIComponent(h.slice(6)));
     else if (h === 'owners') renderOwners();
     else if (h.indexOf('owner/') === 0) renderOwner(decodeURIComponent(h.slice(6)));
