@@ -286,8 +286,17 @@
         var t = f.cut.thresholds, lab = ['5 stars: ' + fmt(t[0], 1) + ' or lower', '4 stars: up to ' + fmt(t[1], 1), '3 stars: up to ' + fmt(t[2], 1), '2 stars: up to ' + fmt(t[3], 1), '1 star: above ' + fmt(t[3], 1)];
         var implied = f.abuse ? Math.min(f.cut.band, 2) : f.cut.band;
         return '<div class="cutbox"><div class="strong">' + esc(f.state) + ' cut points for the current release</div><div class="cuts">' + lab.map(function (x, i) { return '<span class="' + (5 - i === f.cut.band ? 'on' : '') + '">' + x + '</span>'; }).join('') + '</div>' +
+          (function () {
+            var ps = f.cut.pos, matches = R.health[0] != null && implied === R.health[0] && !(f.abuse && f.cut.band > 2);
+            if (!ps) return '';
+            var bits = [];
+            if (ps.to_better != null) bits.push('<b>' + fmt(ps.to_better, 1) + '</b> points above the ' + (ps.band + 1) + '-star cut point');
+            if (ps.to_worse != null) bits.push('<b>' + fmt(ps.to_worse, 1) + '</b> points below the ' + (ps.band - 1) + '-star cut point');
+            return '<div class="bandpos">' + (matches && ps.label ? '<span class="chip">' + ps.label + ' ' + ps.band + '-star</span> ' : '') + 'Weighted score of ' + fmt(sv.weighted, 1) + ' is ' + bits.join(' and ') + '.' +
+              (matches && ps.label ? ' <span class="muted">High, Mid, and Low split the band into thirds; High is nearest the next star up.</span>' : '') + '</div>';
+          })() +
           '<div class="small muted">This facility\'s weighted score of ' + fmt(sv.weighted, 3) + ' falls in the ' + f.cut.band + '-star band' + (f.abuse && f.cut.band > 2 ? ', and the abuse icon caps the rating at 2 stars' : '') + '. ' +
-          (R.health[0] != null && implied !== R.health[0] ? 'The published rating is ' + R.health[0] + (R.health[0] === 1 ? ' star' : ' stars') + '. CMS holds a rating until new survey activity, so the published rating can differ from the current band.' : 'Cut points are recalculated by CMS and are shown for context only.') + '</div></div>';
+          (R.health[0] != null && implied !== R.health[0] ? 'The published rating is ' + R.health[0] + (R.health[0] === 1 ? ' star' : ' stars') + '. CMS holds a rating until new survey activity, so the published rating can differ from the current band.' : 'Cut points are recalculated by CMS, and a new survey also changes how earlier surveys are weighted, so this is the current position only and not a forecast.') + '</div></div>';
       })() : '') +
       (f.surveys && f.surveys.length ? '<details class="printopen" style="margin-top:12px"><summary class="small">View all ' + f.surveys.length + ' inspection dates</summary><div class="scroll tall" style="margin-top:8px"><table><thead><tr><th>Survey date</th><th>Type</th><th>Cycle</th></tr></thead><tbody>' +
         f.surveys.map(function (x) { return '<tr><td>' + fdate(x[0]) + '</td><td>' + esc(x[1]) + '</td><td>' + esc(x[2]) + '</td></tr>'; }).join('') + '</tbody></table></div></details>' : '') +
@@ -379,7 +388,7 @@
       '<p class="muted small" style="margin-top:0">Filled only from the CMS figures on this page, in the wording of approved Bravo narratives. Items CMS does not publish are marked [TBD]. Review against the state survey documents before use.</p>' +
       '<pre id="narr" class="narr"></pre><div class="controls" style="margin:10px 0 0"><button id="narrcopy">Copy text</button><span id="narrmsg" class="muted small"></span></div></div>';
     app.innerHTML = h;
-    setPrintFooter('SNF Analytics · ' + f.name + ' (CCN ' + f.ccn + ') · CMS data as of ' + fdate(S.manifest.processing_date));
+    setPrintFooter('Bravo Capital · SNF Analytics · ' + f.name + ' (CCN ' + f.ccn + ') · CMS data as of ' + fdate(S.manifest.processing_date));
     document.getElementById('narr').textContent = narrativeDraft(f);
     document.getElementById('narrcopy').addEventListener('click', function () {
       var t = document.getElementById('narr').textContent, msg = document.getElementById('narrmsg');
@@ -712,7 +721,7 @@
       document.getElementById('pxlsx').addEventListener('click', function () {
         exportXlsx(fileSafe(o.title) + '_portfolio_' + S.manifest.processing_date + '.xlsx', portfolioSheets(o.title, rows, s, missing), this);
       });
-      setPrintFooter('SNF Analytics · ' + o.title + ' · ' + s.facilities + ' facilities · CMS data as of ' + fdate(S.manifest.processing_date), true);
+      setPrintFooter('Bravo Capital · SNF Analytics · ' + o.title + ' · ' + s.facilities + ' facilities · CMS data as of ' + fdate(S.manifest.processing_date), true);
     }
   }
 
@@ -766,18 +775,23 @@
   function exportXlsx(filename, sheets, btn) {
     var label = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
-    return loadScript('vendor/exceljs.min.js').then(function () {
+    return Promise.all([loadScript('vendor/exceljs.min.js'), fetch('vendor/bravo-logo.png').then(function (r) { return r.ok ? r.arrayBuffer() : null; }).catch(function () { return null; })]).then(function (got) {
       var wb = new ExcelJS.Workbook();
-      wb.creator = 'SNF Analytics';
+      wb.creator = 'Bravo Capital';
+      wb.company = 'Bravo Capital';
+      var logo = got[1] ? wb.addImage({ buffer: got[1], extension: 'png' }) : null;
       wb.created = new Date();
       var INK = 'FF141A26', MUTED = 'FF5B6578', HEAD = 'FFE8F1FC', LINE = 'FFD0D5DD';
       sheets.forEach(function (sh) {
-        var ws = wb.addWorksheet(sh.name.slice(0, 31), { views: [{ state: 'frozen', ySplit: 4, showGridLines: false }] });
-        ws.getCell('A1').value = sh.title;
-        ws.getCell('A1').font = { name: 'Calibri', size: 14, bold: true, color: { argb: INK } };
-        ws.getCell('A2').value = (sh.note ? sh.note + ' ' : '') + 'Source: CMS Provider Data Catalog, processing date ' + S.manifest.processing_date + '. Blank cells were not published by CMS.';
-        ws.getCell('A2').font = { name: 'Calibri', size: 9, italic: true, color: { argb: MUTED } };
-        var hr = ws.getRow(4);
+        var ws = wb.addWorksheet(sh.name.slice(0, 31), { views: [{ state: 'frozen', ySplit: 5, showGridLines: false }] });
+        ws.getRow(1).height = 36;
+        if (logo != null) ws.addImage(logo, { tl: { col: 0, row: 0.12 }, ext: { width: 99, height: 30 }, editAs: 'oneCell' });
+        else { ws.getCell('A1').value = 'Bravo Capital'; ws.getCell('A1').font = { name: 'Calibri', size: 12, bold: true, color: { argb: INK } }; }
+        ws.getCell('A2').value = sh.title;
+        ws.getCell('A2').font = { name: 'Calibri', size: 14, bold: true, color: { argb: INK } };
+        ws.getCell('A3').value = (sh.note ? sh.note + ' ' : '') + 'Source: CMS Provider Data Catalog, processing date ' + S.manifest.processing_date + '. Blank cells were not published by CMS.';
+        ws.getCell('A3').font = { name: 'Calibri', size: 9, italic: true, color: { argb: MUTED } };
+        var hr = ws.getRow(5);
         sh.columns.forEach(function (c, i) {
           var cell = hr.getCell(i + 1);
           cell.value = c.header;
@@ -789,7 +803,7 @@
         });
         hr.height = 30;
         sh.rows.forEach(function (r, ri) {
-          var row = ws.getRow(5 + ri);
+          var row = ws.getRow(6 + ri);
           r.forEach(function (v, i) {
             var c = sh.columns[i] || {}, cell = row.getCell(i + 1);
             cell.value = v == null ? null : v;
@@ -799,10 +813,10 @@
             cell.border = { bottom: { style: 'hair', color: { argb: LINE } } };
           });
         });
-        if (sh.rows.length && !sh.noFilter) ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4 + sh.rows.length, column: sh.columns.length } };
+        if (sh.rows.length && !sh.noFilter) ws.autoFilter = { from: { row: 5, column: 1 }, to: { row: 5 + sh.rows.length, column: sh.columns.length } };
         ws.pageSetup = { orientation: sh.columns.length > 6 ? 'landscape' : 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.5, right: 0.5, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } };
-        ws.pageSetup.printTitlesRow = '4:4';
-        ws.headerFooter = { oddFooter: '&L&8SNF Analytics · CMS data as of ' + fdate(S.manifest.processing_date) + '&R&8Page &P of &N' };
+        ws.pageSetup.printTitlesRow = '5:5';
+        ws.headerFooter = { oddFooter: '&L&8Bravo Capital · SNF Analytics · CMS data as of ' + fdate(S.manifest.processing_date) + '&R&8Page &P of &N' };
       });
       return wb.xlsx.writeBuffer();
     }).then(function (buf) {
@@ -911,7 +925,7 @@
 
   /* ---------- Shared: print header and footer ---------- */
   function printHead(kind, title, sub) {
-    return '<div class="printhead"><div class="ph-brand">SNF Analytics</div><div class="ph-kind">' + esc(kind) + '</div>' +
+    return '<div class="printhead"><img class="ph-logo" src="vendor/bravo-logo.png" alt="Bravo Capital"><div class="ph-kind">SNF Analytics · ' + esc(kind) + '</div>' +
       '<div class="ph-meta">CMS data as of ' + fdate(S.manifest.processing_date) + ' · Prepared ' + new Date().toLocaleDateString('en-US') + '</div></div>';
   }
   function setPrintFooter(text, landscape) {
@@ -1030,7 +1044,7 @@
             }).join('') + '</tbody></table></div>' : '<p>No changes for the selected facilities and types.</p>') +
           '<p class="src">Changes compare the published values in two consecutive CMS releases. A fine or citation count that fell is not listed, since older events roll out of CMS\'s reporting window. Source: CMS Provider Information and Health Deficiencies.</p></div>';
         app.innerHTML = h;
-        setPrintFooter('SNF Analytics · What changed · CMS release ' + ch.to + ' vs ' + ch.from);
+        setPrintFooter('Bravo Capital · SNF Analytics · What changed · CMS release ' + ch.to + ' vs ' + ch.from);
         var sel = document.getElementById('chscope');
         sel.value = S.chScope;
         sel.addEventListener('change', function () { S.chScope = sel.value; draw(); });
@@ -1110,7 +1124,7 @@
             '</td><td class="n">' + fmt(r[IX.risk], 0) + '</td><td>' + (r[IX.sff] ? '<span class="chip ' + (r[IX.sff] === 'SFF' ? 'bad' : 'warn') + '">' + esc(r[IX.sff]) + '</span> ' : '') + (r[IX.abuse] ? '<span class="chip bad">Abuse</span>' : '') + '</td></tr>';
         }).join('') + '</tbody></table></div></div>' +
         '<p class="src">A name can appear for ownership, management, or governance roles; the role column shows which. Names are matched exactly as published, so check the Owner lookup for other spellings. Source: CMS Ownership, processing date ' + fdate(S.manifest.processing_date) + '.</p>';
-      setPrintFooter('SNF Analytics · Owner report · ' + name + ' · CMS data as of ' + fdate(S.manifest.processing_date));
+      setPrintFooter('Bravo Capital · SNF Analytics · Owner report · ' + name + ' · CMS data as of ' + fdate(S.manifest.processing_date));
       document.getElementById('oxlsx').addEventListener('click', function () {
         var out = [];
         rows.forEach(function (r) { by[pos[r[0]]].forEach(function (x) { out.push([r[0], r[1], r[2], r[3], x[0], x[1], r[IX.beds], r[IX.overall], r[IX.risk], r[IX.sff] || '', r[IX.abuse] ? 'Y' : 'N']); }); });
@@ -1151,7 +1165,7 @@
       '<li>The backtest uses a reduced form of the score: repeat citations, turnover, contract staffing, and the rating trend are not stored in the release history, so they are not tested here.</li>' +
       '<li>New immediate jeopardy citations are undercounted, because older citations roll out of CMS\'s three-cycle window as new ones arrive.</li>' +
       '<li>A high score is a prompt for diligence, not a conclusion about credit quality.</li></ul></div>';
-    setPrintFooter('SNF Analytics · Bravo risk score methodology · ' + R.version);
+    setPrintFooter('Bravo Capital · SNF Analytics · Bravo risk score methodology · ' + R.version);
     window.scrollTo(0, 0);
   }
 
@@ -1222,7 +1236,7 @@
     var h = location.hash.replace(/^#\/?/, '');
     tip.style.display = 'none';
     var section = h === 'status' ? 'status' : /^(portfolios|portfolio\/|p\/|chain\/)/.test(h) ? 'portfolios' : /^owner/.test(h) ? 'owners' : h === 'changes' ? 'changes' : h === 'risk' ? 'risk' : 'search';
-    setPrintFooter('SNF Analytics · CMS data as of ' + fdate(S.manifest.processing_date));
+    setPrintFooter('Bravo Capital · SNF Analytics · CMS data as of ' + fdate(S.manifest.processing_date));
     Array.prototype.forEach.call(document.querySelectorAll('.top nav a'), function (a) { a.className = a.dataset.nav === section ? 'on' : ''; });
     if (h.indexOf('f/') === 0) renderFacility(decodeURIComponent(h.slice(2)));
     else if (h === 'status') renderStatus();

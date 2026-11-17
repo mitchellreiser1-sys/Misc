@@ -89,9 +89,9 @@ def compose(changes, facilities, watchlist, site_url):
     link = site_url.rstrip("/") + "/#/changes"
 
     if watchlist:
-        subject = f"SNF Analytics: new CMS data ({to}), {len(tracked)} of {len(watchlist)} tracked facilities changed"
+        subject = f"Bravo SNF Analytics: new CMS data ({to}), {len(tracked)} of {len(watchlist)} tracked facilities changed"
     else:
-        subject = f"SNF Analytics: new CMS data ({to})"
+        subject = f"Bravo SNF Analytics: new CMS data ({to})"
 
     e = html.escape
     rows = "".join(f'<tr><td style="padding:4px 0;color:#4a5468">{e(k)}</td><td style="padding:4px 0 4px 24px;text-align:right;font-weight:600">{v:,}</td></tr>' for k, v in national)
@@ -116,6 +116,7 @@ def compose(changes, facilities, watchlist, site_url):
                                 f'{len(missing)} tracked CCN{"s are" if len(missing) > 1 else " is"} not in the current CMS release: {e(", ".join(missing))}</p>')
     body = f"""<!doctype html><html><body style="margin:0;background:#f5f6f8;font-family:Segoe UI,Arial,sans-serif;color:#141a26;font-size:14px;line-height:1.5">
 <div style="max-width:640px;margin:0 auto;padding:24px 16px"><div style="background:#ffffff;border:1px solid #e3e6ec;border-radius:10px;padding:24px">
+<img src="{e(site_url.rstrip("/"))}/vendor/bravo-logo.png" alt="Bravo Capital" height="30" style="height:30px;width:auto;display:block;margin-bottom:10px">
 <div style="font-size:12px;color:#727c8f">SNF Analytics</div>
 <h1 style="font-size:20px;margin:2px 0 4px">New CMS data: {e(to)}</h1>
 <div style="color:#4a5468">Compared with the prior release of {e(frm)}. All checks passed before this release was published.</div>
@@ -143,7 +144,7 @@ def compose(changes, facilities, watchlist, site_url):
 
 def send(subject, body_html, body_text, env):
     to = [a.strip() for a in env["ALERT_TO"].split(",") if a.strip()]
-    sender = env.get("MAIL_FROM") or "SNF Analytics <noreply@bravocapital.com>"
+    sender = env.get("MAIL_FROM") or "Bravo Capital <noreply@bravocapital.com>"
     if env.get("RESEND_API_KEY"):
         req = urllib.request.Request(
             "https://api.resend.com/emails", method="POST",

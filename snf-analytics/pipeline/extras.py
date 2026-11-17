@@ -42,6 +42,32 @@ def cut_point_band(score, thresholds):
     return 1
 
 
+def band_position(score, thresholds):
+    """Where a weighted health score sits inside its star band under the state's
+    current cut points. Lower scores are better.
+
+    Returns {band, lower, upper, to_better, to_worse, label}:
+      to_better  points the score would need to fall to reach the next higher star (None at 5 stars)
+      to_worse   points the score could rise before reaching the next lower star (None at 1 star)
+      label      "High", "Mid", or "Low" within the band by thirds (None at 1 star, which has no floor)
+    Pure arithmetic on two published numbers. It describes the current cut
+    points only and is not a forecast."""
+    band = cut_point_band(score, thresholds)
+    if band is None:
+        return None
+    bounds = [0.0] + list(thresholds)            # upper edge of 5,4,3,2 star bands, preceded by zero
+    i = 5 - band                                  # 0 for 5 stars ... 4 for 1 star
+    lower = bounds[i]
+    upper = bounds[i + 1] if band > 1 else None
+    out = {"band": band, "lower": lower, "upper": upper,
+           "to_better": round(score - lower, 3) if band < 5 else None,
+           "to_worse": round(upper - score, 3) if upper is not None else None, "label": None}
+    if upper is not None and upper > lower:
+        share = (upper - score) / (upper - lower)   # 1.0 at the best edge of the band
+        out["label"] = "High" if share >= 2 / 3 else "Low" if share < 1 / 3 else "Mid"
+    return out
+
+
 def read_pbj(path):
     """Roll the Payroll Based Journal daily file up to one row per facility.
 

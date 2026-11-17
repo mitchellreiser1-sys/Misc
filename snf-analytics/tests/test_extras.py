@@ -30,6 +30,21 @@ class Extras(unittest.TestCase):
                                                    "3 Stars": "12.001-23.000", "2 Stars": "23.001-46.000", "1 Star": ">46.000"}]),
                          {"AL": t})
 
+    def test_band_position(self):
+        t = [3.0, 12.0, 23.0, 46.0]
+        p = extras.band_position(44.0, t)                      # 2-star band runs 23 to 46
+        self.assertEqual((p["band"], p["lower"], p["upper"]), (2, 23.0, 46.0))
+        self.assertEqual((p["to_better"], p["to_worse"], p["label"]), (21.0, 2.0, "Low"))
+        self.assertEqual(extras.band_position(24.0, t)["label"], "High")
+        self.assertEqual(extras.band_position(34.0, t)["label"], "Mid")
+        five = extras.band_position(1.0, t)
+        self.assertEqual((five["band"], five["to_better"], five["to_worse"], five["label"]), (5, None, 2.0, "High"))
+        one = extras.band_position(60.0, t)
+        self.assertEqual((one["band"], one["to_better"], one["to_worse"], one["label"]), (1, 14.0, None, None))
+        edge = extras.band_position(46.0, t)                   # exactly on a cut point stays in the better band
+        self.assertEqual((edge["band"], edge["to_worse"]), (2, 0.0))
+        self.assertIsNone(extras.band_position(None, t))
+
     def test_pbj_metrics(self):
         a = {"census": 100.0, "hours": 400.0, "rn": 50.0, "contract": 40.0, "days": 2, "zero_rn_days": 1}
         m = extras.pbj_metrics(a)

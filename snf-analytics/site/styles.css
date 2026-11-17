@@ -194,6 +194,8 @@ a.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--ac
 .cuts{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
 .cuts span{font-size:12px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink2)}
 .cuts span.on{background:var(--accent-soft);border-color:var(--accent);color:var(--ink);font-weight:600}
+.bandpos{margin:2px 0 8px}
+.bandpos .chip{font-weight:600;border-color:var(--accent);background:var(--accent-soft)}
 .dir.good{color:var(--good)}.dir.bad{color:var(--bad)}
 .narr{white-space:pre-wrap;font:13.5px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0;color:var(--ink)}
 .chip.tiny.warn{color:var(--warn)}
@@ -214,7 +216,7 @@ a.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--ac
   main{max-width:none;padding:0}
   a{color:inherit;text-decoration:none}
   .printhead{display:flex;align-items:baseline;gap:14px;border-bottom:2px solid #141a26;padding-bottom:7px;margin-bottom:14px}
-  .ph-brand{font-size:13pt;font-weight:700;letter-spacing:-.01em}
+  .ph-logo{height:30px;width:auto;align-self:center}
   .ph-kind{font-size:10pt;color:#4a5468}
   .ph-meta{margin-left:auto;font-size:8.5pt;color:#5b6578}
   h1{font-size:18pt}
