@@ -221,7 +221,7 @@ def main(argv=None):
         seed = os.path.join(HERE, "seed", "history.json.gz")
         hist = history.load(args.state_in) or history.load(seed) or history.empty()
         date = data["provider"][0]["Processing Date"]
-        snap = history.snapshot(data["provider"], data["health_def"])
+        snap = history.snapshot(data["provider"], data["health_def"], data["penalties"])
         results.append(validate.check_history_seed(snap, hist["snapshots"].get(date)))
         history.add_release(hist, date, snap)
         extra["history"] = hist

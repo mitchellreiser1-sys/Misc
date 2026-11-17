@@ -124,6 +124,7 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version, ex
     # National position of each facility's weighted health survey score (risk score input)
     survey_share = risk_mod.lower_share([v for v in (num(p["Total Weighted Health Survey Score"]) for p in providers) if v is not None])
     severity = history_mod.severity_counts(data["health_def"])
+    penalty_age = history_mod.penalty_ages(data["penalties"], release_date)
     no_severe = {"ij": [0, 0, 0], "harm": [0, 0, 0], "repeat_severe": 0}
     index, chains, facs = [], {}, []
     for p in providers:
@@ -161,7 +162,8 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version, ex
             sff=sff_code, abuse=p["Abuse Icon"] == "Y", staffing=r_staff,
             turnover=num(p["Total nursing staff turnover"]),
             contract_share=pm["contract_share"] if pm else None, zero_rn_days=pm["zero_rn_days"] if pm else None,
-            denials=num(p["Number of Payment Denials"]) or 0, fine_total=num(p["Total Amount of Fines in Dollars"]) or 0,
+            fines_by_age=penalty_age.get(ccn, history_mod.NO_PENALTIES)["fines"],
+            denials_by_age=penalty_age.get(ccn, history_mod.NO_PENALTIES)["denials"],
             qm=r_qm, chow=p["Provider Changed Ownership in Last 12 Months"] == "Y")
         thresholds = cut_points.get(p["State"])
 

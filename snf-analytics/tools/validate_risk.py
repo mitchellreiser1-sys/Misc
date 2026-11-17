@@ -45,6 +45,7 @@ def study_year(arch, pbj_dir, fa, da, fb, db):
     za, zb = zipfile.ZipFile(f"{arch}/{fa}.zip"), zipfile.ZipFile(f"{arch}/{fb}.zip")
     providers = read(za, "NH_ProviderInfo")
     sev = history.severity_counts(read(za, "NH_HealthCitations"))
+    pens = history.penalty_ages(read(za, "NH_Penalties"), da)
     none = {"ij": [0, 0, 0], "harm": [0, 0, 0], "repeat_severe": 0}
     share = risk.lower_share([v for v in (num(p["Total Weighted Health Survey Score"]) for p in providers) if v is not None])
     pbj_path = os.path.join(pbj_dir, f"pbj_{da}.csv")
@@ -73,8 +74,9 @@ def study_year(arch, pbj_dir, fa, da, fb, db):
             survey_pct=share.get(w) if w is not None else None, ij_cycles=s["ij"], harm_cycles=s["harm"],
             repeat_severe=s["repeat_severe"], sff=sff, abuse=p["Abuse Icon"] == "Y", staffing=num(p["Staffing Rating"]),
             turnover=num(p.get("Total nursing staff turnover")), contract_share=m["contract_share"] if m else None,
-            zero_rn_days=m["zero_rn_days"] if m else None, denials=num(p["Number of Payment Denials"]) or 0,
-            fine_total=num(p["Total Amount of Fines in Dollars"]) or 0, qm=num(p["QM Rating"]),
+            zero_rn_days=m["zero_rn_days"] if m else None,
+            fines_by_age=pens.get(ccn, history.NO_PENALTIES)["fines"], denials_by_age=pens.get(ccn, history.NO_PENALTIES)["denials"],
+            qm=num(p["QM Rating"]),
             chow=p["Provider Changed Ownership in Last 12 Months"] == "Y")
         had = ccn in event or history.SFF_CODES.get(l["Special Focus Status"].strip(), 0) > sff
         rows.append((total, parts, int(had), share.get(w, 0.0) if w is not None else 0.0))
@@ -115,7 +117,8 @@ def main(arch, pbj_dir, out):
         "version": risk.VERSION, "run_date": datetime.date.today().isoformat(),
         "outcome": "An immediate jeopardy citation or payment denial dated in the 12 months after the scoring date, or new SFF or SFF candidate status",
         "years": years, "pooled_auc": base, "pooled_auc_cms": roc_auc_score(y, [r[3] for r in pooled]),
-        "prior_versions": [{"name": "Version 2", "pooled_auc": 0.690}, {"name": "Draft v1", "pooled_auc": 0.678}],
+        "prior_versions": [{"name": "Version 3", "pooled_auc": 0.688}, {"name": "Version 2", "pooled_auc": 0.690},
+                           {"name": "Draft v1", "pooled_auc": 0.678}],
         "components": components,
     }
     with open(out, "w", encoding="utf-8") as f:

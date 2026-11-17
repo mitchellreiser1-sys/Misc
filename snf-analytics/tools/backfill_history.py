@@ -26,12 +26,12 @@ def main(folder, out):
         if not fn.endswith(".zip"):
             continue
         z = zipfile.ZipFile(os.path.join(folder, fn))
-        if not all(any(t in n for n in z.namelist()) for t in ("NH_ProviderInfo", "NH_HealthCitations")):
+        if not all(any(t in n for n in z.namelist()) for t in ("NH_ProviderInfo", "NH_HealthCitations", "NH_Penalties")):
             print(fn, "-> skipped, archive is missing the provider or health citation file")
             continue
         providers = read(z, "NH_ProviderInfo")
         date = providers[0]["Processing Date"]
-        snap = history.snapshot(providers, read(z, "NH_HealthCitations"))
+        snap = history.snapshot(providers, read(z, "NH_HealthCitations"), read(z, "NH_Penalties"))
         history.add_release(h, date, snap)
         print(fn, "->", date, len(snap), "facilities")
     history.save(h, out)

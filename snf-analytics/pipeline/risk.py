@@ -15,18 +15,20 @@ underwriting judgment:
     recent severe citation outweighs the repeat flag
   - one recent immediate jeopardy citation counts at least as much as a
     1-star staffing rating once its effect on the survey score is included
+  - fines and payment denials count less as they age (version 3.1)
 """
 
 NAME = "Regulatory screening score"
-VERSION = "Version 3"
+VERSION = "Version 3.1"
 CYCLE_WEIGHTS = (1.0, 0.5, 0.25)   # most recent inspection cycle first
+AGE_WEIGHTS = (1.0, 0.5, 0.25)     # penalties: last 12 months, 12 to 24 months, older
 
 # (key, label, how points are assigned, maximum points). Maximums add to 100.
 COMPONENTS = [
     ("survey", "Health survey score", "0 to 24 points by national percentile of CMS's total weighted health survey score (24 at the worst)", 24),
     ("sff", "Special Focus status", "16 points for SFF, 10 for SFF candidate", 16),
     ("ij", "Immediate jeopardy citations", "6 points each in the most recent inspection cycle, 3 in the prior cycle, 1.5 in the oldest, up to 15", 15),
-    ("penalties", "Fines and payment denials", "6 points for any payment denial; fines in the last 3 years: 8 points at $25,000 or more, 4 for any smaller amount", 14),
+    ("penalties", "Fines and payment denials", "Payment denial: 6 points if the most recent is within 12 months, 3 if 12 to 24 months old, 1.5 if older. Fines are grouped by the same ages; a group totaling $25,000 or more is worth 8 and a smaller amount 4, counted in full, at half, or at a quarter by age, and the highest group is used", 14),
     ("staffing", "Staffing rating", "10 points for 1 star, 5 for 2 stars", 10),
     ("harm", "Actual harm citations", "3 points each in the most recent inspection cycle, 1.5 in the prior cycle, 0.75 in the oldest, up to 7", 7),
     ("chow", "Change of ownership", "4 points when CMS flags a change of ownership in the last 12 months", 4),
@@ -59,20 +61,21 @@ def recency_weighted(cycles):
 
 
 def score(survey_pct=None, ij_cycles=(0, 0, 0), harm_cycles=(0, 0, 0), repeat_severe=0, sff=0, abuse=False,
-          staffing=None, turnover=None, contract_share=None, zero_rn_days=None, denials=0, fine_total=0,
-          qm=None, chow=False):
+          staffing=None, turnover=None, contract_share=None, zero_rn_days=None, fines_by_age=(0, 0, 0),
+          denials_by_age=(0, 0, 0), qm=None, chow=False):
     """Return (total, {component: points}).
 
     survey_pct: share of facilities nationally with a lower (better) weighted
     health survey score, 0 to 1; None when CMS publishes no score.
     ij_cycles / harm_cycles: counts for inspection cycles 1, 2, 3.
+    fines_by_age / denials_by_age: fine dollars and denial counts for the
+    last 12 months, 12 to 24 months, and older.
     sff: 0 none, 1 candidate, 2 SFF."""
     p = {
         "survey": _half_up(24 * survey_pct) if survey_pct is not None else 0,
         "sff": 16 if sff == 2 else 10 if sff == 1 else 0,
         "ij": min(15, _half_up(6 * recency_weighted(ij_cycles))),
-        "penalties": (6 if (denials or 0) > 0 else 0)
-                     + (8 if (fine_total or 0) >= 25000 else 4 if (fine_total or 0) > 0 else 0),
+        "penalties": penalty_points(fines_by_age, denials_by_age),
         "staffing": 10 if staffing == 1 else 5 if staffing == 2 else 0,
         "harm": min(7, _half_up(3 * recency_weighted(harm_cycles))),
         "chow": 4 if chow else 0,
@@ -84,6 +87,13 @@ def score(survey_pct=None, ij_cycles=(0, 0, 0), harm_cycles=(0, 0, 0), repeat_se
         "rn": 1 if zero_rn_days is not None and zero_rn_days > 0 else 0,
     }
     return min(100, sum(p.values())), p
+
+
+def penalty_points(fines_by_age, denials_by_age):
+    """Fines and payment denials, discounted by age. Up to 14 points."""
+    denial = max([6 * w for n, w in zip(denials_by_age or (), AGE_WEIGHTS) if (n or 0) > 0] or [0])
+    fine = max([(8 if amt >= 25000 else 4) * w for amt, w in zip(fines_by_age or (), AGE_WEIGHTS) if (amt or 0) > 0] or [0])
+    return _half_up(denial) + _half_up(fine)
 
 
 def lower_share(values):
@@ -108,7 +118,8 @@ def score_snapshot_row(row, survey_pct):
     return score(survey_pct=survey_pct, ij_cycles=(row[F["ij1"]], row[F["ij2"]], row[F["ij3"]]),
                  harm_cycles=(row[F["harm1"]], row[F["harm2"]], row[F["harm3"]]), repeat_severe=row[F["repeat_severe"]],
                  sff=row[F["sff"]], abuse=row[F["abuse"]], staffing=row[F["staffing"]], turnover=row[F["turnover"]],
-                 denials=row[F["denials"]], fine_total=row[F["fine_total"]], qm=row[F["qm"]], chow=row[F["chow"]])
+                 fines_by_age=(row[F["fine1"]], row[F["fine2"]], row[F["fine3"]]),
+                 denials_by_age=(row[F["den1"]], row[F["den2"]], row[F["den3"]]), qm=row[F["qm"]], chow=row[F["chow"]])
 
 
 def backtest(history_snapshots, as_of, later):

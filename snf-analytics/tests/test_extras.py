@@ -6,7 +6,7 @@ from pipeline.sources import CCN
 
 
 def row(**kw):
-    r = [3, 3, 3, 3, 0, 0, 0, 20.0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, None]
+    r = [3, 3, 3, 3, 0, 0, 0, 20.0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, None, 0.0, 0.0, 0.0, 0, 0, 0]
     for k, v in kw.items():
         r[F[k]] = v
     return r
@@ -109,7 +109,13 @@ class History(unittest.TestCase):
                                        "Deficiency Prefix": "F", "Deficiency Tag Number": tag}
         defs = [mk("J", "1", "0600"), mk("K", "2", "0600"), mk("D", "1", "0880"), mk("D", "2", "0880"),
                 mk("G", "3", "0689"), mk("G", "3", "0700"), mk("", "1", "0999")]
-        snap = history.snapshot([p], defs)["1"]
+        p["Processing Date"] = "2026-10-01"
+        pen = lambda date, kind, amt: {CCN: "1", "Penalty Date": date, "Penalty Type": kind, "Fine Amount": amt}
+        pens = [pen("2026-03-01", "Fine", "1000"), pen("2025-10-01", "Fine", "500"), pen("2025-09-30", "Fine", "250"),
+                pen("2023-11-30", "Fine", "198188"), pen("2023-11-30", "Payment Denial", "")]
+        snap = history.snapshot([p], defs, pens)["1"]
+        self.assertEqual((snap[F["fine1"]], snap[F["fine2"]], snap[F["fine3"]]), (1000.0, 750.0, 198188.0))
+        self.assertEqual((snap[F["den1"]], snap[F["den2"]], snap[F["den3"]]), (0, 0, 1))
         self.assertEqual(snap[F["ij"]], 2)
         self.assertEqual(snap[F["harm"]], 2)
         self.assertEqual((snap[F["ij1"]], snap[F["ij2"]], snap[F["ij3"]]), (1, 1, 0))
@@ -174,22 +180,32 @@ class Risk(unittest.TestCase):
     def test_components_add_to_exactly_100(self):
         self.assertEqual(sum(c[3] for c in risk.COMPONENTS), 100)
         total, p = risk.score(survey_pct=1.0, ij_cycles=(5, 0, 0), harm_cycles=(5, 0, 0), repeat_severe=2, sff=2, abuse=True,
-                              staffing=1, turnover=61, contract_share=0.21, zero_rn_days=3, denials=1, fine_total=25000,
-                              qm=2, chow=True)
+                              staffing=1, turnover=61, contract_share=0.21, zero_rn_days=3, denials_by_age=(1, 0, 0),
+                              fines_by_age=(25000, 0, 0), qm=2, chow=True)
         self.assertEqual(p, {c[0]: c[3] for c in risk.COMPONENTS})   # every component reaches its stated maximum
         self.assertEqual(total, 100)
 
     def test_point_values(self):
         self.assertEqual(risk.score(sff=1)[1]["sff"], 10)
         self.assertEqual(risk.score(staffing=2)[1]["staffing"], 5)
-        self.assertEqual(risk.score(fine_total=24999)[1]["penalties"], 4)
-        self.assertEqual(risk.score(denials=1, fine_total=198188)[1]["penalties"], 14)
+        self.assertEqual(risk.score(fines_by_age=(24999, 0, 0))[1]["penalties"], 4)
+        self.assertEqual(risk.score(denials_by_age=(1, 0, 0), fines_by_age=(198188, 0, 0))[1]["penalties"], 14)
         self.assertEqual(risk.score(survey_pct=0.5)[1]["survey"], 12)
         self.assertEqual(risk.score(survey_pct=12114 / 14647)[1]["survey"], 20)
         self.assertEqual(risk.score(survey_pct=None)[1]["survey"], 0)
         self.assertEqual(risk.score(turnover=60, contract_share=0.20, zero_rn_days=0, qm=3)[0], 0)
         # a single recent severe citation outweighs the repeat flag
         self.assertGreater(risk.score(harm_cycles=(1, 0, 0))[1]["harm"], risk.score(repeat_severe=1)[1]["repeat"])
+
+    def test_penalties_count_less_as_they_age(self):
+        pp = risk.penalty_points
+        self.assertEqual([pp((0, 0, 0), d) for d in ((1, 0, 0), (0, 1, 0), (0, 0, 1), (0, 0, 0))], [6, 3, 2, 0])   # 1.5 rounds to 2
+        self.assertEqual([pp(f, (0, 0, 0)) for f in ((25000, 0, 0), (0, 25000, 0), (0, 0, 25000))], [8, 4, 2])
+        self.assertEqual([pp(f, (0, 0, 0)) for f in ((100, 0, 0), (0, 100, 0), (0, 0, 100))], [4, 2, 1])
+        self.assertEqual(pp((0, 0, 198188), (0, 0, 1)), 4)            # an old large fine and denial
+        self.assertEqual(pp((1000, 0, 198188), (0, 0, 0)), 4)         # a small recent fine outweighs an old large one
+        self.assertEqual(pp((10000, 10000, 10000), (0, 0, 0)), 4)     # groups are not added together
+        self.assertEqual(pp((30000, 0, 0), (5, 5, 5)), 14)            # the most recent denial sets the denial points
 
     def test_tiers(self):
         self.assertEqual([risk.tier(s) for s in (0, 14, 15, 29, 30, 44, 45, 100)],
@@ -203,7 +219,7 @@ class Risk(unittest.TestCase):
         self.assertEqual(risk.lower_share([5.0, 5.0, 9.0, 20.0]), {5.0: 0.0, 9.0: 0.5, 20.0: 0.75})
 
     def test_scoring_from_history_row(self):
-        r = row(staffing=1, sff=1, ij1=1, harm2=1, repeat_severe=1, denials=1, fine_total=500, chow=1, turnover=70.0, qm=1)
+        r = row(staffing=1, sff=1, ij1=1, harm2=1, repeat_severe=1, den1=1, fine1=500.0, chow=1, turnover=70.0, qm=1)
         total, p = risk.score_snapshot_row(r, 0.5)
         self.assertEqual(total, 12 + 10 + 10 + 10 + 6 + 2 + 2 + 4 + 1 + 2)
         self.assertEqual((p["contract"], p["rn"]), (0, 0))

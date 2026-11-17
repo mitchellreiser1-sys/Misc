@@ -11,7 +11,8 @@ from .sources import CCN
 
 FIELDS = ["overall", "health", "staffing", "qm", "sff", "abuse", "chow", "weighted",
           "fines", "fine_total", "denials", "ij", "harm", "beds",
-          "ij1", "ij2", "ij3", "harm1", "harm2", "harm3", "repeat_severe", "turnover"]
+          "ij1", "ij2", "ij3", "harm1", "harm2", "harm3", "repeat_severe", "turnover",
+          "fine1", "fine2", "fine3", "den1", "den2", "den3"]
 F = {name: i for i, name in enumerate(FIELDS)}
 MAX_RELEASES = 48
 SFF_CODES = {"": 0, "SFF Candidate": 1, "SFF": 2}
@@ -41,13 +42,36 @@ def severity_counts(health_def_rows):
     return out
 
 
-def snapshot(provider_rows, health_def_rows):
+def penalty_ages(penalty_rows, release_date):
+    """Per facility: fine dollars and payment denial counts grouped by age at
+    the release date: last 12 months, 12 to 24 months, older.
+    Returns {ccn: {"fines": [a, b, c], "denials": [a, b, c]}}."""
+    y, rest = int(release_date[:4]), release_date[4:]
+    cut1, cut2 = f"{y - 1}{rest}", f"{y - 2}{rest}"
+    out = {}
+    for x in penalty_rows:
+        d = x["Penalty Date"]
+        k = 0 if d > cut1 else 1 if d > cut2 else 2
+        c = out.setdefault(x[CCN], {"fines": [0.0, 0.0, 0.0], "denials": [0, 0, 0]})
+        if x["Penalty Type"] == "Fine":
+            c["fines"][k] += num(x["Fine Amount"]) or 0
+        else:
+            c["denials"][k] += 1
+    return out
+
+
+NO_PENALTIES = {"fines": [0.0, 0.0, 0.0], "denials": [0, 0, 0]}
+
+
+def snapshot(provider_rows, health_def_rows, penalty_rows):
     sev = severity_counts(health_def_rows)
+    pens = penalty_ages(penalty_rows, provider_rows[0]["Processing Date"]) if provider_rows else {}
     none = {"ij": [0, 0, 0], "harm": [0, 0, 0], "repeat_severe": 0}
     snap = {}
     for p in provider_rows:
         c = p[CCN]
         s = sev.get(c, none)
+        pa = pens.get(c, NO_PENALTIES)
         snap[c] = [
             num(p["Overall Rating"]), num(p["Health Inspection Rating"]), num(p["Staffing Rating"]), num(p["QM Rating"]),
             SFF_CODES.get(p["Special Focus Status"].strip(), 0), 1 if p["Abuse Icon"] == "Y" else 0,
@@ -57,6 +81,7 @@ def snapshot(provider_rows, health_def_rows):
             sum(s["ij"]), sum(s["harm"]), num(p["Number of Certified Beds"]),
             s["ij"][0], s["ij"][1], s["ij"][2], s["harm"][0], s["harm"][1], s["harm"][2], s["repeat_severe"],
             num(p.get("Total nursing staff turnover")),
+            pa["fines"][0], pa["fines"][1], pa["fines"][2], pa["denials"][0], pa["denials"][1], pa["denials"][2],
         ]
     return snap
 

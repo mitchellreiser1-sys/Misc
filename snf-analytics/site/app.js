@@ -1230,6 +1230,7 @@
         '<li><b>It measures regulatory risk.</b> It has not been tested against financial or credit outcomes.</li>' +
         '<li><b>The weights are underwriting judgment.</b> Reasonable changes to the points, including those for Special Focus status, severe citations, and staffing, did not change the ranking accuracy in testing. The points reflect how much each item matters to HUD and to a lender.</li>' +
         '<li><b>Older citations count less.</b> Facilities whose most recent immediate jeopardy citation was in the latest inspection cycle had later events more often than those whose only such citation was in an older cycle.</li>' +
+        '<li><b>Fines and payment denials count less as they age.</b> A penalty in the last 12 months counts in full, one from 12 to 24 months ago counts half, and an older one counts a quarter. Adding this discount did not change the ranking accuracy.</li>' +
         '<li><b>A single recent severe citation outweighs the repeat flag.</b> The citation is the direct evidence; the repeat is a pattern on top of it.</li>' +
         '<li><b>Star rating trend is not used.</b> Facilities with a recent star decline had later events at the same rate as everyone else.</li></ul></div>';
     } else {
