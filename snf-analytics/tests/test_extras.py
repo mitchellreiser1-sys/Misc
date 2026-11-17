@@ -160,29 +160,40 @@ class Risk(unittest.TestCase):
         self.assertEqual(risk.score()[0], 0)
 
     def test_older_citations_count_less(self):
-        self.assertEqual(risk.score(ij_cycles=(1, 0, 0))[1]["ij"], 4)
-        self.assertEqual(risk.score(ij_cycles=(0, 1, 0))[1]["ij"], 2)
-        self.assertEqual(risk.score(ij_cycles=(0, 0, 1))[1]["ij"], 1)
-        self.assertEqual(risk.score(ij_cycles=(9, 9, 9))[1]["ij"], 14)
-        self.assertEqual(risk.score(harm_cycles=(1, 0, 0))[1]["harm"], 2)
-        self.assertEqual(risk.score(harm_cycles=(0, 1, 0))[1]["harm"], 1)
-        self.assertEqual(risk.score(harm_cycles=(0, 0, 1))[1]["harm"], 1)   # 0.5 rounds half up
-        self.assertEqual(risk.score(harm_cycles=(0, 0, 2))[1]["harm"], 1)
-        self.assertEqual(risk.score(harm_cycles=(9, 9, 9))[1]["harm"], 8)
+        self.assertEqual(risk.score(ij_cycles=(1, 0, 0))[1]["ij"], 6)
+        self.assertEqual(risk.score(ij_cycles=(0, 1, 0))[1]["ij"], 3)
+        self.assertEqual(risk.score(ij_cycles=(0, 0, 1))[1]["ij"], 2)     # 1.5 rounds half up
+        self.assertEqual(risk.score(ij_cycles=(0, 0, 2))[1]["ij"], 3)
+        self.assertEqual(risk.score(ij_cycles=(9, 9, 9))[1]["ij"], 15)
+        self.assertEqual(risk.score(harm_cycles=(1, 0, 0))[1]["harm"], 3)
+        self.assertEqual(risk.score(harm_cycles=(0, 1, 0))[1]["harm"], 2)  # 1.5 rounds half up
+        self.assertEqual(risk.score(harm_cycles=(0, 0, 1))[1]["harm"], 1)  # 0.75 rounds to 1
+        self.assertEqual(risk.score(harm_cycles=(0, 0, 4))[1]["harm"], 3)
+        self.assertEqual(risk.score(harm_cycles=(9, 9, 9))[1]["harm"], 7)
 
-    def test_components_and_cap(self):
+    def test_components_add_to_exactly_100(self):
+        self.assertEqual(sum(c[3] for c in risk.COMPONENTS), 100)
         total, p = risk.score(survey_pct=1.0, ij_cycles=(5, 0, 0), harm_cycles=(5, 0, 0), repeat_severe=2, sff=2, abuse=True,
                               staffing=1, turnover=61, contract_share=0.21, zero_rn_days=3, denials=1, fine_total=25000,
                               qm=2, chow=True)
-        self.assertEqual(p, {"survey": 30, "staffing": 16, "penalties": 19, "sff": 25, "ij": 14, "harm": 8, "repeat": 5,
-                             "chow": 6, "abuse": 4, "qm": 4, "turnover": 3, "contract": 2, "rn": 2})
+        self.assertEqual(p, {c[0]: c[3] for c in risk.COMPONENTS})   # every component reaches its stated maximum
         self.assertEqual(total, 100)
-        self.assertEqual(risk.score(sff=1)[1]["sff"], 15)
-        self.assertEqual(risk.score(staffing=2)[1]["staffing"], 8)
-        self.assertEqual(risk.score(fine_total=24999)[1]["penalties"], 6)
-        self.assertEqual(risk.score(survey_pct=0.5)[1]["survey"], 15)
+
+    def test_point_values(self):
+        self.assertEqual(risk.score(sff=1)[1]["sff"], 10)
+        self.assertEqual(risk.score(staffing=2)[1]["staffing"], 5)
+        self.assertEqual(risk.score(fine_total=24999)[1]["penalties"], 4)
+        self.assertEqual(risk.score(denials=1, fine_total=198188)[1]["penalties"], 14)
+        self.assertEqual(risk.score(survey_pct=0.5)[1]["survey"], 12)
+        self.assertEqual(risk.score(survey_pct=12114 / 14647)[1]["survey"], 20)
         self.assertEqual(risk.score(survey_pct=None)[1]["survey"], 0)
         self.assertEqual(risk.score(turnover=60, contract_share=0.20, zero_rn_days=0, qm=3)[0], 0)
+        # a single recent severe citation outweighs the repeat flag
+        self.assertGreater(risk.score(harm_cycles=(1, 0, 0))[1]["harm"], risk.score(repeat_severe=1)[1]["repeat"])
+
+    def test_tiers(self):
+        self.assertEqual([risk.tier(s) for s in (0, 14, 15, 29, 30, 44, 45, 100)],
+                         ["Low", "Low", "Moderate", "Moderate", "Elevated", "Elevated", "Review recommended", "Review recommended"])
 
     def test_every_component_is_documented(self):
         self.assertEqual({c[0] for c in risk.COMPONENTS}, set(risk.score()[1]))
@@ -194,7 +205,7 @@ class Risk(unittest.TestCase):
     def test_scoring_from_history_row(self):
         r = row(staffing=1, sff=1, ij1=1, harm2=1, repeat_severe=1, denials=1, fine_total=500, chow=1, turnover=70.0, qm=1)
         total, p = risk.score_snapshot_row(r, 0.5)
-        self.assertEqual(total, 15 + 16 + 15 + 15 + 4 + 1 + 5 + 6 + 3 + 4)
+        self.assertEqual(total, 12 + 10 + 10 + 10 + 6 + 2 + 2 + 4 + 1 + 2)
         self.assertEqual((p["contract"], p["rn"]), (0, 0))
 
     def test_backtest_runs_on_history(self):

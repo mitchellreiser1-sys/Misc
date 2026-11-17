@@ -224,11 +224,11 @@
     }
     var RK = f.risk, RL = S.lookups.risk;
     var parts = RL.components.filter(function (c) { return RK.parts[c[0]] > 0; });
-    var riskCard = '<div class="card riskcard"><div class="rk-score"><div class="stat"><div class="k">Bravo risk score <span class="chip tiny">' + esc(RL.version) + '</span></div><div class="v">' + RK.score + '<span class="rk-of"> / 100</span></div>' +
-      '<div class="meter risk-meter" role="img" aria-label="Risk score ' + RK.score + ' of 100"><i style="width:' + RK.score + '%"></i></div>' +
-      '<div class="s">Higher than ' + RK.pct_us + '% of facilities nationally and ' + RK.pct_state + '% in ' + esc(f.state) + '. An internal Bravo judgment, not a CMS figure. <a href="#/risk">How it works</a></div></div></div>' +
+    var riskCard = '<div class="card riskcard"><div class="rk-score"><div class="stat"><div class="k">Regulatory screening score <span class="chip tiny">' + esc(RL.version) + '</span></div><div class="v">' + RK.score + '<span class="rk-of"> / 100</span> <span class="chip tier t' + tierIndex(RK.score) + '">' + esc(RK.tier) + '</span></div>' +
+      '<div class="meter risk-meter" role="img" aria-label="Regulatory screening score ' + RK.score + ' of 100"><i style="width:' + RK.score + '%"></i></div>' +
+      '<div class="s">Higher than ' + RK.pct_us + '% of facilities nationally and ' + RK.pct_state + '% in ' + esc(f.state) + '. A Bravo screening aid for regulatory risk. Not a CMS figure and not a credit risk measure. <a href="#/risk">How it works</a></div></div></div>' +
       '<div class="rk-parts">' + (parts.length ? '<table><thead><tr><th>What contributes</th><th class="n">Points</th></tr></thead><tbody>' + parts.map(function (c) {
-        return '<tr><td>' + esc(c[1]) + '<div class="muted small">' + esc(c[2]) + (c[0] === 'survey' && RK.survey_pct != null ? '. This facility\'s score is worse than ' + RK.survey_pct + '% of facilities.' : '') + '</div></td><td class="n strong">' + RK.parts[c[0]] + '</td></tr>';
+        return '<tr><td>' + esc(c[1]) + ' <span class="muted small">(of ' + c[3] + ')</span><div class="muted small">' + esc(c[2]) + (c[0] === 'survey' && RK.survey_pct != null ? '. This facility\'s score is worse than ' + RK.survey_pct + '% of facilities.' : '') + '</div></td><td class="n strong">' + RK.parts[c[0]] + '</td></tr>';
       }).join('') + '</tbody></table>' : '<p class="muted" style="margin:0">No component of the score applies to this facility.</p>') +
       '</div></div>';
     h += '<div class="sect" id="sec-risk"><span>Risk snapshot</span></div>' + riskCard + '<div class="card strip">' +
@@ -547,7 +547,7 @@
     ['Overall ★', IX.overall, '*'], ['Health ★', IX.health, '*'], ['Staffing ★', IX.staffing, '*'], ['QM ★', IX.qm, '*'],
     ['Nurse HPRD', IX.hprd, 2], ['RN HPRD', IX.rnHprd, 2], ['Turnover %', IX.turnover, 1],
     ['Cycle 1 defs', IX.c1defs, 0], ['Weighted score', IX.weighted, 1], ['Harm cites', IX.harm, 0], ['IJ cites', IX.jeopardy, 0],
-    ['Repeat tags', IX.repeats, 0], ['Fines', IX.fines, 0], ['Fine $', IX.fineTotal, '$'], ['Pay denials', IX.denials, 0], ['Risk score', IX.risk, 0], ['Flags', 'flags', 'f']
+    ['Repeat tags', IX.repeats, 0], ['Fines', IX.fines, 0], ['Fine $', IX.fineTotal, '$'], ['Pay denials', IX.denials, 0], ['Screening score', IX.risk, 0], ['Flags', 'flags', 'f']
   ];
   function pval(r, key) { return key === 'occ' ? (r[IX.beds] && r[IX.residents] != null ? r[IX.residents] / r[IX.beds] : null) : r[key]; }
 
@@ -629,9 +629,9 @@
       risk('Changed ownership in the last 12 months', s.chow, pct(s.chow) + ' of facilities', s.chow / n) +
       '</div><div>' +
       (function () {
-        var RL = S.lookups.risk, p90 = Rollup.scoreAtPercentile(RL.us_percentiles, 90), hi = Rollup.countAtOrAbove(rows, p90);
-        return risk('Average Bravo risk score <span class="chip tiny">' + esc(RL.version) + '</span>', s.risk.avg == null ? NA : fmt(s.risk.avg, 0),
-          hi + (hi === 1 ? ' facility is' : ' facilities are') + ' in the top 10% nationally (score of ' + p90 + ' or higher) · not a CMS figure · <a href="#/risk">How it works</a>', p90 == null ? null : hi / n);
+        var RL = S.lookups.risk, top = RL.tiers[RL.tiers.length - 1], hi = Rollup.countAtOrAbove(rows, top[0]);
+        return risk('Average regulatory screening score <span class="chip tiny">' + esc(RL.version) + '</span>', s.risk.avg == null ? NA : fmt(s.risk.avg, 0),
+          hi + (hi === 1 ? ' facility scores ' : ' facilities score ') + top[0] + ' or higher (' + esc(top[2].toLowerCase()) + ') · not a CMS figure · <a href="#/risk">How it works</a>', hi / n);
       })() +
       risk('Immediate jeopardy citations', s.jeopardy, 'Scope and severity J to L, last 3 inspection cycles · at ' + fac(s.facilitiesWithJeopardy) + ' (' + pct(s.facilitiesWithJeopardy) + ')', s.facilitiesWithJeopardy / n) +
       risk('Actual harm citations', s.harm, 'Scope and severity G to I, last 3 inspection cycles') +
@@ -875,14 +875,14 @@
       ['Repeat citation tags', (f.repeat || []).join(', ')],
       ['Fines, last 3 years', P.fines], ['Fine dollars, last 3 years', P.fine_total], ['Payment denials, last 3 years', P.denials],
       ['Total weighted health survey score', sv.weighted],
-      ['Bravo risk score (' + L.risk.version + ', not a CMS figure)', f.risk.score], ['Risk score national percentile', f.risk.pct_us], ['Risk score state percentile', f.risk.pct_state]
+      ['Regulatory screening score (' + L.risk.version + ', not a CMS figure)', f.risk.score], ['Screening score review tier', f.risk.tier], ['Screening score national percentile', f.risk.pct_us], ['Screening score state percentile', f.risk.pct_state]
     ];
     if (f.pbj) summary.push(['Contract staff share of nurse hours (derived, ' + L.pbj.quarter + ')', Math.round(f.pbj.contract_share * 10000) / 10000], ['Days with no RN hours reported (' + L.pbj.quarter + ')', f.pbj.zero_rn_days]);
     if (f.vbp) summary.push(['FY ' + L.vbp_fy + ' VBP incentive payment multiplier', f.vbp.multiplier], ['FY ' + L.vbp_fy + ' VBP performance score', f.vbp.score], ['FY ' + L.vbp_fy + ' VBP national ranking', f.vbp.ranking]);
     var sheets = [{ name: 'Summary', title: who, noFilter: true, boldFirst: true, columns: [{ header: 'Item', width: 52 }, { header: 'Value', width: 46, wrap: true }], rows: summary }];
-    sheets.push({ name: 'Risk score', title: who + ': Bravo risk score ' + f.risk.score + ' of 100', note: L.risk.version + '. An internal Bravo judgment, not a CMS figure.', noFilter: true,
-      columns: [{ header: 'Component', width: 34 }, { header: 'How points are assigned', width: 80, wrap: true }, { header: 'Points', width: 9, fmt: '0' }],
-      rows: L.risk.components.map(function (c) { return [c[1], c[2], f.risk.parts[c[0]]]; }).concat([['Total (capped at 100)', '', f.risk.score]]) });
+    sheets.push({ name: 'Screening score', title: who + ': regulatory screening score ' + f.risk.score + ' of 100 (' + f.risk.tier + ')', note: L.risk.version + '. A Bravo screening aid for regulatory risk, not a CMS figure.', noFilter: true,
+      columns: [{ header: 'Component', width: 34 }, { header: 'How points are assigned', width: 80, wrap: true }, { header: 'Maximum', width: 10, fmt: '0' }, { header: 'Points', width: 9, fmt: '0' }],
+      rows: L.risk.components.map(function (c) { return [c[1], c[2], c[3], f.risk.parts[c[0]]]; }).concat([['Total', '', 100, f.risk.score]]) });
     if (f.history) sheets.push({ name: 'Rating history', title: who + ': published star ratings by CMS release',
       columns: [{ header: 'CMS release', width: 13 }, { header: 'Overall', width: 10, fmt: '0' }, { header: 'Health inspection', width: 12, fmt: '0' }, { header: 'Staffing', width: 10, fmt: '0' }, { header: 'Quality measures', width: 12, fmt: '0' }],
       rows: f.history.dates.map(function (d, i) { return [d, f.history.overall[i], f.history.health[i], f.history.staffing[i], f.history.qm[i]]; }).reverse() });
@@ -926,7 +926,7 @@
       ['Fines, last 3 years', s.fines], ['Fine dollars, last 3 years', s.fineTotal], ['Payment denials, last 3 years', s.denials],
       ['Average total nurse hours per resident day (' + s.hprd.n + ' reporting)', r4(s.hprd.avg)], ['Average RN hours per resident day (' + s.rnHprd.n + ' reporting)', r4(s.rnHprd.avg)],
       ['Average total nursing staff turnover % (' + s.turnover.n + ' reporting)', r4(s.turnover.avg)],
-      ['Average Bravo risk score (' + S.lookups.risk.version + ', not a CMS figure)', r4(s.risk.avg)]
+      ['Average regulatory screening score (' + S.lookups.risk.version + ', not a CMS figure)', r4(s.risk.avg)]
     ];
     if (missing.length) summary.push(['CCNs not in the current CMS release (excluded)', missing.join(', ')]);
     var D = s.distribution;
@@ -942,7 +942,7 @@
           { header: 'Total nurse HPRD', width: 9, fmt: '0.00' }, { header: 'RN HPRD', width: 8, fmt: '0.00' }, { header: 'Nursing turnover %', width: 9, fmt: '0.0' },
           { header: 'Cycle 1 health deficiencies', width: 10, fmt: '0' }, { header: 'Weighted health survey score', width: 10, fmt: '0.0' }, { header: 'Actual harm citations', width: 9, fmt: '0' }, { header: 'Immediate jeopardy citations', width: 9, fmt: '0' }, { header: 'Repeat citation tags', width: 9, fmt: '0' },
           { header: 'Fines', width: 7, fmt: '0' }, { header: 'Fine dollars', width: 12, fmt: '$#,##0' }, { header: 'Payment denials', width: 8, fmt: '0' },
-          { header: 'Risk score (Bravo draft)', width: 9, fmt: '0' }, { header: 'Special focus status', width: 14 }, { header: 'Abuse icon', width: 7 }, { header: 'Changed ownership, 12 months', width: 10 }],
+          { header: 'Regulatory screening score', width: 10, fmt: '0' }, { header: 'Special focus status', width: 14 }, { header: 'Abuse icon', width: 7 }, { header: 'Changed ownership, 12 months', width: 10 }],
         rows: rows.map(function (r) {
           var occ = r[IX.beds] && r[IX.residents] != null ? r[IX.residents] / r[IX.beds] : null;
           return [r[0], r[IX.name], r[IX.city], r[IX.state], r[IX.chain], r[IX.beds], r[IX.residents], occ, r[IX.overall], r[IX.health], r[IX.staffing], r[IX.qm], r[IX.hprd], r[IX.rnHprd], r[IX.turnover],
@@ -991,6 +991,12 @@
       '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(label + ' from ' + monthLabel(dates[0]) + ' to ' + monthLabel(dates[n - 1]) + (rated.length ? ': low ' + Math.min.apply(null, rated) + ', high ' + Math.max.apply(null, rated) + ', latest ' + values[last] : ': not rated')) + '">' +
       grid + '<path d="' + path + '" class="hc-line"/>' + dots +
       '<text x="' + L + '" y="' + (H - 6) + '" class="hc-tick">' + monthLabel(dates[0]) + '</text><text x="' + (W - R) + '" y="' + (H - 6) + '" class="hc-tick" text-anchor="end">' + monthLabel(dates[n - 1]) + '</text>' + hits + '</svg></div>';
+  }
+
+  function tierIndex(score) {
+    var T = S.lookups.risk.tiers;
+    for (var i = 0; i < T.length; i++) if (score >= T[i][0] && score <= T[i][1]) return i;
+    return T.length - 1;
   }
 
   /* ---------- Shared: change descriptions ---------- */
@@ -1146,8 +1152,8 @@
         '<div class="phead"><div><h1>' + esc(name) + '</h1><div class="sub">' + (O.types[i] === 'I' ? 'Individual' : O.types[i] === 'O' ? 'Organization' : 'Owner or manager') + ' · reported at ' + rows.length + (rows.length === 1 ? ' facility' : ' facilities') + ' · CMS data as of ' + fdate(S.manifest.processing_date) + '</div></div>' +
         '<div class="controls"><a class="btn primary" href="#/p/' + ccns.join(',') + '">Open as portfolio</a><button id="oxlsx">Download Excel</button><button onclick="window.print()">Print / PDF</button></div></div>' +
         '<div class="tiles">' + tile('Facilities', rows.length) + tile('Certified beds', fmt(s.beds, 0)) + tile('Average overall rating', s.ratings.overall.avg == null ? NA : fmt(s.ratings.overall.avg, 2), s.ratings.overall.n + ' rated') +
-        tile('SFF / candidates', s.sff + ' / ' + s.sffCandidates) + tile('Abuse icon', s.abuse, 'facilities') + tile('Average risk score', s.risk.avg == null ? NA : fmt(s.risk.avg, 0), 'Bravo draft score, 0 to 100') + '</div>' +
-        '<div class="card" style="padding:6px 8px"><div class="scroll ptable"><table><thead><tr><th>Facility</th><th>State</th><th>Role at this facility</th><th class="n">Ownership</th><th class="n">Beds</th><th class="n">Overall ★</th><th class="n">Risk score</th><th>Flags</th></tr></thead><tbody>' +
+        tile('SFF / candidates', s.sff + ' / ' + s.sffCandidates) + tile('Abuse icon', s.abuse, 'facilities') + tile('Average screening score', s.risk.avg == null ? NA : fmt(s.risk.avg, 0), 'Regulatory screening score, 0 to 100') + '</div>' +
+        '<div class="card" style="padding:6px 8px"><div class="scroll ptable"><table><thead><tr><th>Facility</th><th>State</th><th>Role at this facility</th><th class="n">Ownership</th><th class="n">Beds</th><th class="n">Overall ★</th><th class="n">Screening score</th><th>Flags</th></tr></thead><tbody>' +
         rows.map(function (r) {
           var roles = by[pos[r[0]]];
           return '<tr><td><a class="fname" href="#/f/' + esc(r[0]) + '">' + esc(r[1]) + '</a><div class="muted small">' + esc(r[0]) + ' · ' + esc(r[2]) + '</div></td><td>' + esc(r[3]) + '</td><td class="small">' + roles.map(function (x) { return esc(x[0]); }).join('<br>') +
@@ -1162,7 +1168,7 @@
         exportXlsx(fileSafe(name) + '_facilities_' + S.manifest.processing_date + '.xlsx', [{
           name: 'Facilities', title: name + ': facilities reported by CMS',
           columns: [{ header: 'CCN', width: 9 }, { header: 'Facility', width: 42 }, { header: 'City', width: 18 }, { header: 'State', width: 7 }, { header: 'Role at this facility', width: 44 }, { header: 'Ownership', width: 12 },
-            { header: 'Certified beds', width: 10, fmt: '#,##0' }, { header: 'Overall rating', width: 9, fmt: '0' }, { header: 'Risk score (Bravo draft)', width: 12, fmt: '0' }, { header: 'Special focus status', width: 16 }, { header: 'Abuse icon', width: 8 }],
+            { header: 'Certified beds', width: 10, fmt: '#,##0' }, { header: 'Overall rating', width: 9, fmt: '0' }, { header: 'Regulatory screening score', width: 12, fmt: '0' }, { header: 'Special focus status', width: 16 }, { header: 'Abuse icon', width: 8 }],
           rows: out
         }], this);
       });
@@ -1174,14 +1180,15 @@
   function renderRisk() {
     var R = S.lookups.risk, V = R.validation, pc = function (v, d) { return fmt(v * 100, d == null ? 1 : d) + '%'; };
     var p90 = Rollup.scoreAtPercentile(R.us_percentiles, 90), p75 = Rollup.scoreAtPercentile(R.us_percentiles, 75), p50 = Rollup.scoreAtPercentile(R.us_percentiles, 50);
-    var h = printHead('Risk score methodology') + '<div class="phead"><div><h1>Bravo risk score</h1><div class="sub">' + esc(R.version) + ' · an internal Bravo judgment, not a CMS figure</div></div><div class="controls"><button onclick="window.print()">Print / PDF</button></div></div>' +
-      '<div class="card"><h2>What it is</h2><p style="margin-top:0">A points score from 0 to 100 where higher means more regulatory risk. Every input is a value CMS publishes or a simple count of published records, and every facility report shows the points behind its score.</p>' +
+    var h = printHead('Screening score methodology') + '<div class="phead"><div><h1>Regulatory screening score</h1><div class="sub">' + esc(R.version) + ' · a Bravo screening aid, not a CMS figure and not a credit risk measure</div></div><div class="controls"><button onclick="window.print()">Print / PDF</button></div></div>' +
+      '<div class="card"><h2>What it is</h2><p style="margin-top:0">A points score whose components add to exactly 100, where higher means more regulatory risk. Every input is a value CMS publishes or a simple count of published records, and every facility report shows the points behind its score.</p>' +
       '<p style="margin-bottom:0">It is a screening aid: it shows where to look first. It measures regulatory risk only. It has not been tested against credit outcomes such as defaults or operating losses, and it should not be used alone in a credit decision or a lender narrative.</p>' +
       '<p class="muted" style="margin-bottom:0">In the current release the median facility scores ' + p50 + ', the top quarter starts at ' + p75 + ', and the top 10% starts at ' + p90 + '.</p></div>';
 
-    h += '<div class="card"><h2>How points are assigned</h2><div class="scroll"><table><thead><tr><th>Component</th><th>Points</th></tr></thead><tbody>' +
-      R.components.map(function (c) { return '<tr><td class="strong">' + esc(c[1]) + '</td><td>' + esc(c[2]) + '</td></tr>'; }).join('') +
-      '</tbody></table></div><p class="src">The total is capped at 100. Older inspection cycles count less. Contract staffing and RN coverage use the daily Payroll Based Journal file and are left out when that file is unavailable. A facility with no published survey score gets no survey points.</p></div>';
+    h += '<div class="card"><h2>How points are assigned</h2><div class="scroll"><table><thead><tr><th>Component</th><th class="n">Maximum</th><th>How points are earned</th></tr></thead><tbody>' +
+      R.components.map(function (c) { return '<tr><td class="strong">' + esc(c[1]) + '</td><td class="n strong">' + c[3] + '</td><td>' + esc(c[2]) + '</td></tr>'; }).join('') +
+      '<tr class="total"><td>Total</td><td class="n">' + R.components.reduce(function (a, c) { return a + c[3]; }, 0) + '</td><td></td></tr>' +
+      '</tbody></table></div><p class="src">Citation points are rounded to a whole number. Older inspection cycles count less. A severe citation also raises CMS\'s survey score, so it affects the first component as well. Contract staffing and RN coverage use the daily Payroll Based Journal file and are left out when that file is unavailable. A facility with no published survey score gets no survey points.</p></div>';
 
     if (V) {
       var avgAuc = V.pooled_auc, cms = V.pooled_auc_cms;
@@ -1190,13 +1197,18 @@
         '<div class="tiles" style="margin-bottom:6px">' +
         '<div class="tile"><div class="k">Ranking accuracy</div><div class="v">' + pc(avgAuc, 0) + '</div><div class="s">Given one facility that had an event and one that did not, the score ranks the event facility higher this often. 50% is a coin flip, 100% is perfect.</div></div>' +
         '<div class="tile"><div class="k">CMS weighted health score alone</div><div class="v">' + pc(cms, 0) + '</div><div class="s">The same test using only CMS\'s published survey score.</div></div>' +
-        (V.prior_version ? '<div class="tile"><div class="k">Previous version (' + esc(V.prior_version.name) + ')</div><div class="v">' + pc(V.prior_version.pooled_auc, 0) + '</div><div class="s">The same test on the earlier scoring rules.</div></div>' : '') +
+        (V.prior_versions || []).map(function (pv) { return '<div class="tile"><div class="k">Earlier rules (' + esc(pv.name) + ')</div><div class="v">' + pc(pv.pooled_auc, 0) + '</div><div class="s">The same test on an earlier set of scoring rules.</div></div>'; }).join('') +
         '</div></div>';
 
+      h += '<div class="card"><h2>Review tiers</h2><p class="muted" style="margin-top:0">Tiers say how closely to look, not whether a facility is acceptable. Even in the highest tier, most facilities had no serious event in the following year.</p><div class="scroll"><table><thead><tr><th>Tier</th><th>Score</th>' +
+        V.years.map(function (y) { return '<th class="n">Scored ' + fdate(y.as_of) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+        V.years[0].tiers.map(function (t, i) {
+          return '<tr><td><span class="chip tier t' + i + '">' + esc(t[0]) + '</span></td><td>' + t[1] + (t[2] >= 100 ? ' and up' : ' to ' + t[2]) + '</td>' + V.years.map(function (y) { return '<td class="n"><span class="strong">' + pc(y.tiers[i][4]) + '</span> <span class="muted small">of ' + y.tiers[i][3].toLocaleString() + '</span></td>'; }).join('') + '</tr>';
+        }).join('') + '</tbody></table></div><p class="src">Each cell is the share of facilities in that tier that had a serious event in the following 12 months, and the number of facilities in the tier.</p></div>';
       h += '<div class="card"><h2>Share of facilities with a serious event in the next 12 months, by score</h2><div class="scroll"><table><thead><tr><th>Score</th>' +
         V.years.map(function (y) { return '<th class="n">Scored ' + fdate(y.as_of) + '</th>'; }).join('') + '</tr></thead><tbody>' +
         V.years[0].bands.map(function (b, i) {
-          return '<tr><td>' + b[0] + ' to ' + b[1] + '</td>' + V.years.map(function (y) { return '<td class="n"><span class="strong">' + pc(y.bands[i][3]) + '</span> <span class="muted small">of ' + y.bands[i][2].toLocaleString() + '</span></td>'; }).join('') + '</tr>';
+          return '<tr><td>' + b[0] + (b[1] >= 100 ? ' and up' : ' to ' + b[1]) + '</td>' + V.years.map(function (y) { return '<td class="n"><span class="strong">' + pc(y.bands[i][3]) + '</span> <span class="muted small">of ' + y.bands[i][2].toLocaleString() + '</span></td>'; }).join('') + '</tr>';
         }).join('') +
         '<tr class="total"><td>All facilities</td>' + V.years.map(function (y) { return '<td class="n">' + pc(y.event_rate) + ' <span class="muted small" style="font-weight:400">of ' + y.facilities.toLocaleString() + '</span></td>'; }).join('') + '</tr>' +
         '</tbody></table></div>' +
@@ -1216,9 +1228,10 @@
         '<li><b>It sorts well, but it is not a forecast for one facility.</b> About ' + pc(1 - V.years[V.years.length - 1].top10_rate, 0) + ' of facilities in the top 10% of scores had no serious event in the following year, and most events happened outside the top 10%.</li>' +
         '<li><b>It is modestly better than CMS\'s own survey score.</b> Most of its power comes from that score plus staffing and penalties.</li>' +
         '<li><b>It measures regulatory risk.</b> It has not been tested against financial or credit outcomes.</li>' +
-        '<li><b>Special Focus points are a judgment.</b> SFF and SFF candidate status carry 25 and 15 points because the status matters to HUD and to a lender. In the test, changing those points up or down did not change the ranking accuracy, because few facilities have the status and their survey scores already place them near the top.</li>' +
+        '<li><b>The weights are underwriting judgment.</b> Reasonable changes to the points, including those for Special Focus status, severe citations, and staffing, did not change the ranking accuracy in testing. The points reflect how much each item matters to HUD and to a lender.</li>' +
         '<li><b>Older citations count less.</b> Facilities whose most recent immediate jeopardy citation was in the latest inspection cycle had later events more often than those whose only such citation was in an older cycle.</li>' +
-        '<li><b>The rating trend was removed.</b> Facilities with a recent star decline had later events at the same rate as everyone else.</li></ul></div>';
+        '<li><b>A single recent severe citation outweighs the repeat flag.</b> The citation is the direct evidence; the repeat is a pattern on top of it.</li>' +
+        '<li><b>Star rating trend is not used.</b> Facilities with a recent star decline had later events at the same rate as everyone else.</li></ul></div>';
     } else {
       h += '<div class="card"><h2>How well it works</h2><p style="margin:0">No validation study is on file for ' + esc(R.version) + '. The score should be treated as untested until one is run.</p></div>';
     }
@@ -1231,7 +1244,7 @@
         }).join('') + '</div>';
     }
     app.innerHTML = h;
-    setPrintFooter('Bravo Capital · SNF Analytics · Bravo risk score methodology · ' + R.version);
+    setPrintFooter('Bravo Capital · SNF Analytics · Regulatory screening score methodology · ' + R.version);
     window.scrollTo(0, 0);
   }
 

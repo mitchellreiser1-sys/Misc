@@ -240,7 +240,7 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version, ex
                     "pos": extras.band_position(num(p["Total Weighted Health Survey Score"]), thresholds)} if thresholds else None,
             "pbj": pm,
             "vbp": vbp.get(ccn) if vbp else None,
-            "risk": {"score": rscore, "parts": rparts,
+            "risk": {"score": rscore, "parts": rparts, "tier": risk_mod.tier(rscore),
                      "survey_pct": round(100 * survey_share[weighted]) if weighted is not None else None},
         }
         facs.append(fac)
@@ -314,7 +314,8 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version, ex
     _write(os.path.join(out_dir, "data", "lookups.json"),
            {"descs": descs, "measures": measures, "benchmarks": benchmarks, "footnotes": FOOTNOTES,
             "chains": chains,
-            "risk": {"version": risk_mod.VERSION, "components": risk_mod.COMPONENTS, "backtest": backtest,
+            "risk": {"name": risk_mod.NAME, "version": risk_mod.VERSION, "components": risk_mod.COMPONENTS,
+                     "tiers": risk_mod.TIERS, "backtest": backtest,
                      "us_percentiles": us_pct, "validation": _risk_validation(site_src)},
             "pbj": {"quarter": extra.get("pbj_quarter"), "period": extra.get("pbj_period")} if pbj else None,
             "vbp_fy": extra.get("vbp_fy"),

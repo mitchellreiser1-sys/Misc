@@ -32,7 +32,7 @@ from pipeline.sources import CCN
 PAIRS = [("2023-10-02", "2023-10-01", "2024-10-30", "2024-10-01"),
          ("2024-10-30", "2024-10-01", "2025-11-20", "2025-10-01"),
          ("2025-11-20", "2025-10-01", "2026-10-28", "2026-10-01")]
-BANDS = [(0, 9), (10, 19), (20, 29), (30, 39), (40, 49), (50, 64), (65, 100)]
+BANDS = [(0, 9), (10, 19), (20, 29), (30, 39), (40, 49), (50, 59), (60, 100)]
 
 
 def read(z, token):
@@ -95,6 +95,8 @@ def main(arch, pbj_dir, out):
             "auc": roc_auc_score(y, [r[0] for r in rows]), "auc_cms": roc_auc_score(y, [r[3] for r in rows]),
             "top10_share": sum(r[2] for r in top) / events, "top10_rate": sum(r[2] for r in top) / len(top),
             "bottom20_rate": sum(r[2] for r in by_score[-(n // 5):]) / (n // 5),
+            "tiers": [[label, lo, hi, sum(1 for r in rows if lo <= r[0] <= hi),
+                       (sum(r[2] for r in rows if lo <= r[0] <= hi) / max(1, sum(1 for r in rows if lo <= r[0] <= hi)))] for lo, hi, label in risk.TIERS],
             "bands": [[lo, hi, sum(1 for r in rows if lo <= r[0] <= hi),
                        (sum(r[2] for r in rows if lo <= r[0] <= hi) / max(1, sum(1 for r in rows if lo <= r[0] <= hi)))] for lo, hi in BANDS],
         })
@@ -102,7 +104,7 @@ def main(arch, pbj_dir, out):
     y = [r[2] for r in pooled]
     base = roc_auc_score(y, [r[0] for r in pooled])
     components = []
-    for key, label, _ in risk.COMPONENTS:
+    for key, label, *_ in risk.COMPONENTS:
         applies = sum(1 for r in pooled if r[1][key] > 0) / len(pooled)
         on = [r[2] for r in pooled if r[1][key] > 0]
         off = [r[2] for r in pooled if r[1][key] == 0]
@@ -113,7 +115,8 @@ def main(arch, pbj_dir, out):
         "version": risk.VERSION, "run_date": datetime.date.today().isoformat(),
         "outcome": "An immediate jeopardy citation or payment denial dated in the 12 months after the scoring date, or new SFF or SFF candidate status",
         "years": years, "pooled_auc": base, "pooled_auc_cms": roc_auc_score(y, [r[3] for r in pooled]),
-        "prior_version": {"name": "Draft v1", "pooled_auc": 0.678}, "components": components,
+        "prior_versions": [{"name": "Version 2", "pooled_auc": 0.690}, {"name": "Draft v1", "pooled_auc": 0.678}],
+        "components": components,
     }
     with open(out, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=1)

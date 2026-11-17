@@ -29,7 +29,7 @@ and lists are never uploaded; the shareable link carries CCNs only.
 - **Email on new data** (`pipeline/notify.py`): sent when a new CMS release publishes. See "Email setup" below.
 - **Owner lookup**: every owner, officer, and managing entity across all facilities, matched on the name exactly as CMS publishes it.
 - **Repeat citations, cut point bands, rating history, daily staffing detail, and SNF VBP** (`pipeline/extras.py`).
-- **Bravo risk score** (`pipeline/risk.py`): an internal screening score, not a CMS figure. Weights live in one file. `tools/validate_risk.py` tests the score against three years of dated outcomes and writes `seed/risk_validation.json`, which the Risk score page displays. Rerun it whenever the scoring rules change; the page shows the study only when its version matches the live score.
+- **Regulatory screening score** (`pipeline/risk.py`): an internal screening aid whose components add to 100, with review tiers. Not a CMS figure and not a credit risk measure. Weights live in one file. `tools/validate_risk.py` tests the score against three years of dated outcomes and writes `seed/risk_validation.json`, which the Risk score page displays. Rerun it whenever the scoring rules change; the page shows the study only when its version matches the live score.
 - **Exports**: formatted Excel workbooks and a print layout for PDF, for facility, portfolio, owner, and change reports.
 - **Lender narrative draft**: the Subject's State Surveys section, filled from CMS figures only, with `[TBD]` markers for anything CMS does not publish.
 
@@ -74,6 +74,6 @@ python -m http.server 8000 -d dist
 - CMS changes file layouts several times a year. The schema gate stops the refresh when that happens; `pipeline/sources.py` then needs updating.
 - CMS's download servers reject some non-browser HTTP clients, so downloads use `curl`.
 - Staffing figures are CMS's published Payroll-Based Journal measures, not the daily PBJ files.
-- The risk score measures regulatory risk only and ranks facilities with about 69% accuracy; see the Risk score page. It has not been tested against credit outcomes.
+- The regulatory screening score measures regulatory risk only and ranks facilities with about 69% accuracy; see the Screening score page. It has not been tested against credit outcomes.
 - Owner names are not de-duplicated. The same person can appear under more than one spelling.
 - Not included: Medicare cost reports, SNF QRP, market comparisons.
