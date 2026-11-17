@@ -15,6 +15,46 @@
     try { localStorage.setItem(STORE, JSON.stringify(list)); return true; } catch (e) { return false; }
   }
   function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  /* Add CCNs to a saved portfolio. Returns how many were new. */
+  function addCcns(id, ccns) {
+    var list = loadPortfolios(), added = 0, name = null;
+    list.forEach(function (p) {
+      if (p.id !== id) return;
+      name = p.name;
+      ccns.forEach(function (c) { if (p.ccns.indexOf(c) === -1) { p.ccns.push(c); added++; } });
+    });
+    return savePortfolios(list) && name != null ? { added: added, name: name } : null;
+  }
+  function createPortfolio(name, ccns) {
+    var l = loadPortfolios(), p = { id: newId(), name: name, ccns: ccns || [] };
+    l.push(p);
+    return savePortfolios(l) ? p : null;
+  }
+  function pfOptions(selected) {
+    return loadPortfolios().map(function (p) {
+      return '<option value="' + esc(p.id) + '"' + (p.id === selected ? ' selected' : '') + '>' + esc(p.name) + ' (' + p.ccns.length + ')</option>';
+    }).join('') + '<option value="__new">New portfolio…</option>';
+  }
+  /* Resolve the portfolio chosen in a dropdown, creating one if "New portfolio" is selected. */
+  function targetPortfolio(sel) {
+    if (sel.value !== '__new') return sel.value;
+    var name = prompt('Name for the new portfolio (saved in this browser only)');
+    if (!name || !name.trim()) return null;
+    var p = createPortfolio(name.trim(), []);
+    if (!p) { alert('This browser would not save the portfolio.'); return null; }
+    S.target = p.id;
+    sel.innerHTML = pfOptions(p.id);
+    return p.id;
+  }
+  function matchRows(q, state) {
+    var terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+    return S.index.filter(function (r) {
+      if (state && r[IX.state] !== state) return false;
+      if (!terms.length) return true;
+      var hay = (r[0] + ' ' + r[1] + ' ' + r[2] + ' ' + r[4] + ' ' + r[5] + ' ' + r[6]).toLowerCase();
+      return terms.every(function (t) { return hay.indexOf(t) !== -1; });
+    });
+  }
   function byCcn() {
     if (!S.map) { S.map = {}; S.index.forEach(function (r) { S.map[r[0]] = r; }); }
     return S.map;
@@ -26,7 +66,7 @@
     });
   }
   function getJSON(url) {
-    return fetch(url).then(function (r) {
+    return fetch(url, { cache: 'no-cache' }).then(function (r) {
       if (!r.ok) throw new Error(url + ' returned ' + r.status);
       return r.json();
     });
@@ -79,28 +119,37 @@
   }
   function results() {
     var el = document.getElementById('results');
-    var terms = S.q.toLowerCase().split(/\s+/).filter(Boolean);
-    if (!terms.length && !S.state) { el.innerHTML = '<p class="muted">Enter a search term or choose a state.</p>'; return; }
-    var hits = S.index.filter(function (r) {
-      if (S.state && r[IX.state] !== S.state) return false;
-      if (!terms.length) return true;
-      var hay = (r[0] + ' ' + r[1] + ' ' + r[2] + ' ' + r[4] + ' ' + r[5] + ' ' + r[6]).toLowerCase();
-      return terms.every(function (t) { return hay.indexOf(t) !== -1; });
-    });
+    if (!S.q.trim() && !S.state) { el.innerHTML = '<p class="muted">Enter a search term or choose a state.</p>'; return; }
+    var hits = matchRows(S.q, S.state);
     var shown = hits.slice(0, 200);
     el.innerHTML = '<p class="muted small">' + hits.length.toLocaleString() + ' matching facilities' +
       (hits.length > shown.length ? ', showing the first ' + shown.length : '') + '.' +
       (hits.length && hits.length <= 1000 ? ' <a href="#/p/' + hits.map(function (r) { return r[0]; }).join(',') + '">View these as a portfolio</a>' : '') + '</p>' +
-      '<div class="scroll"><table><thead><tr><th>Facility</th><th>CCN</th><th>City</th><th>State</th><th>Chain</th><th class="n">Beds</th><th>Overall rating</th><th>Flags</th></tr></thead><tbody>' +
+      (hits.length ? '<div class="controls"><label class="cb">Add facilities to <select id="searchsel" aria-label="Portfolio to add to">' + pfOptions(S.target) + '</select></label><span id="searchmsg" class="muted small"></span></div>' : '') +
+      '<div class="scroll"><table><thead><tr><th>Facility</th><th>CCN</th><th>City</th><th>State</th><th>Chain</th><th class="n">Beds</th><th>Overall rating</th><th>Flags</th><th></th></tr></thead><tbody>' +
       shown.map(function (r) {
         var flags = (r[IX.sff] ? '<span class="chip ' + (r[IX.sff] === 'SFF' ? 'bad' : 'warn') + '">' + esc(r[IX.sff]) + '</span> ' : '') +
           (r[IX.abuse] ? '<span class="chip bad">Abuse icon</span>' : '');
         return '<tr class="hit" data-ccn="' + esc(r[0]) + '"><td><a href="#/f/' + esc(r[0]) + '">' + esc(r[1]) + '</a></td><td>' + esc(r[0]) +
           '</td><td>' + esc(r[2]) + '</td><td>' + esc(r[3]) + '</td><td>' + esc(r[6]) + '</td><td class="n">' + fmt(r[IX.beds], 0) +
-          '</td><td>' + stars(r[IX.overall]) + '</td><td>' + flags + '</td></tr>';
+          '</td><td>' + stars(r[IX.overall]) + '</td><td>' + flags + '</td><td><button class="addrow" data-ccn="' + esc(r[0]) + '">+ Add</button></td></tr>';
       }).join('') + '</tbody></table></div>';
     Array.prototype.forEach.call(el.querySelectorAll('tr.hit'), function (tr) {
-      tr.addEventListener('click', function (e) { if (e.target.tagName !== 'A') location.hash = '#/f/' + tr.dataset.ccn; });
+      tr.addEventListener('click', function (e) { if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') location.hash = '#/f/' + tr.dataset.ccn; });
+    });
+    var sel = document.getElementById('searchsel');
+    if (sel) sel.addEventListener('change', function () { if (sel.value !== '__new') S.target = sel.value; });
+    Array.prototype.forEach.call(el.querySelectorAll('button.addrow'), function (b) {
+      b.addEventListener('click', function () {
+        var id = targetPortfolio(sel);
+        if (!id) return;
+        var r = addCcns(id, [b.dataset.ccn]), msg = document.getElementById('searchmsg');
+        if (!r) { msg.textContent = 'Could not save.'; return; }
+        b.textContent = r.added ? 'Added' : 'Already in';
+        b.disabled = true;
+        msg.textContent = (r.added ? 'Added to ' : 'Already in ') + r.name + '.';
+        sel.innerHTML = pfOptions(id);
+      });
     });
   }
 
@@ -125,9 +174,8 @@
     var L = S.lookups, bs = L.benchmarks[f.state] || { staffing: {}, qm: {}, ratings: {} }, bn = L.benchmarks.NATION;
     var asof = fdate(S.manifest.processing_date);
     var src = function (file) { return '<p class="src">Source: CMS ' + esc(file) + ', processing date ' + asof + '.</p>'; };
-    var saved = loadPortfolios();
     var h = '<a class="back" href="#/">← Back to search</a> <span style="float:right" class="controls">' +
-      (saved.length ? '<select id="addsel" aria-label="Portfolio">' + saved.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') + '</select><button id="addbtn">Add to portfolio</button>' : '') +
+      '<span id="addmsg" class="muted small" style="align-self:center"></span><select id="addsel" aria-label="Portfolio to add to">' + pfOptions(S.target) + '</select><button id="addbtn">Add to portfolio</button>' +
       '<button onclick="window.print()">Print or save as PDF</button></span>';
 
     /* header */
@@ -268,11 +316,14 @@
     }
     ['fH', 'fF', 'fG'].forEach(function (id) { document.getElementById(id).addEventListener('change', drawDefs); });
     drawDefs();
-    var addbtn = document.getElementById('addbtn');
-    if (addbtn) addbtn.addEventListener('click', function () {
-      var list = loadPortfolios(), id = document.getElementById('addsel').value;
-      list.forEach(function (p) { if (p.id === id && p.ccns.indexOf(f.ccn) === -1) p.ccns.push(f.ccn); });
-      addbtn.textContent = savePortfolios(list) ? 'Added' : 'Could not save';
+    var addsel = document.getElementById('addsel');
+    addsel.addEventListener('change', function () { if (addsel.value !== '__new') S.target = addsel.value; });
+    document.getElementById('addbtn').addEventListener('click', function () {
+      var id = targetPortfolio(addsel);
+      if (!id) return;
+      var r = addCcns(id, [f.ccn]);
+      document.getElementById('addmsg').textContent = !r ? 'Could not save.' : (r.added ? 'Added to ' : 'Already in ') + r.name + '.';
+      if (r) addsel.innerHTML = pfOptions(id);
     });
     window.scrollTo(0, 0);
   }
@@ -304,7 +355,7 @@
           return '<tr><td><a href="#/portfolio/' + esc(p.id) + '">' + esc(p.name) + '</a></td><td class="n">' + p.ccns.length + '</td><td><button data-del="' + esc(p.id) + '">Delete</button></td></tr>';
         }).join('') + '</tbody></table></div>' : '<p>No saved portfolios yet.</p>') + '</div>' +
       '<div class="card"><h2>New portfolio</h2><div class="controls"><input id="pname" type="search" placeholder="Portfolio name" style="max-width:340px"></div>' +
-      '<textarea id="pccns" rows="5" placeholder="Paste CCNs separated by commas, spaces, or new lines. Leading zeros dropped by Excel are restored."></textarea>' +
+      '<textarea id="pccns" rows="4" placeholder="Optional. Paste CCNs separated by commas, spaces, or new lines, or leave blank and add facilities afterwards. Leading zeros dropped by Excel are restored."></textarea>' +
       '<div class="controls" style="margin-top:10px"><button id="pcreate">Save portfolio</button><span id="pmsg" class="muted small"></span></div></div>' +
       '<div class="card"><h2>CMS chains</h2><p class="muted">Every chain CMS identifies is available as a ready-made portfolio.</p>' +
       '<div class="controls"><input id="cq" type="search" placeholder="Chain name"></div><div id="chains"></div></div>';
@@ -318,10 +369,9 @@
     document.getElementById('pcreate').addEventListener('click', function () {
       var name = document.getElementById('pname').value.trim(), ccns = Rollup.parseCcns(document.getElementById('pccns').value), msg = document.getElementById('pmsg');
       if (!name) { msg.textContent = 'Enter a name.'; return; }
-      if (!ccns.length) { msg.textContent = 'No valid CCNs found.'; return; }
-      var l = loadPortfolios(), p = { id: newId(), name: name, ccns: ccns };
-      l.push(p);
-      if (!savePortfolios(l)) { msg.textContent = 'This browser would not save the portfolio. Use the link view instead.'; return; }
+      if (!ccns.length && document.getElementById('pccns').value.trim()) { msg.textContent = 'No valid CCNs found in the text. Clear the box to create an empty portfolio.'; return; }
+      var p = createPortfolio(name, ccns);
+      if (!p) { msg.textContent = 'This browser would not save the portfolio. Use the link view instead.'; return; }
       location.hash = '#/portfolio/' + p.id;
     });
     var cq = document.getElementById('cq');
@@ -372,12 +422,20 @@
       return tile(label, avg(m, 2), m.n + ' of ' + s.facilities + ' rated · US ' + fmt(nat[natKey], 1) + (o.chain ? ' · CMS chain avg ' + fmt(chainVal, 1) : ''));
     }
     var h = '<a class="back" href="#/portfolios">← Portfolios</a> <span style="float:right" class="controls">' +
-      (o.savedId ? '' : '<button id="psave">Save as portfolio</button>') +
+      (o.savedId ? '<button id="prename">Rename</button>' : '<button id="psave">Save as portfolio</button>') +
       '<button id="plink">Copy link</button><button id="pcsv">Download CSV</button><button onclick="window.print()">Print or save as PDF</button></span>' +
       '<div class="card" style="clear:both"><h1>' + esc(o.title) + '</h1><div class="muted">' + (o.chain ? 'CMS chain · ' : '') + s.facilities.toLocaleString() + ' facilities in the current CMS release' +
       (o.chain && o.chain.count != null ? ' (CMS reports ' + o.chain.count + ')' : '') + '</div>' +
       (missing.length ? '<p class="chip warn" style="display:inline-block;margin-top:10px">' + missing.length + ' CCN' + (missing.length > 1 ? 's' : '') + ' not in the current CMS release: ' + esc(missing.join(', ')) + '</p><p class="muted small">A CCN drops out when a facility closes, loses certification, or receives a new CCN. These are excluded from every figure below.</p>' : '') + '</div>';
-    if (!rows.length) { app.innerHTML = h + '<div class="card"><p>No facilities to show.</p></div>'; wire(); return; }
+    var addCard = !o.savedId ? '' : '<div class="card"><h2>Add facilities</h2>' +
+      '<div class="controls"><input id="addq" type="search" placeholder="Search by facility name, CCN, city, county, ZIP, or chain"></div><div id="addhits"></div>' +
+      '<details style="margin-top:8px"><summary class="small">Paste a list of CCNs instead</summary><textarea id="addccns" rows="3" style="margin-top:8px" placeholder="CCNs separated by commas, spaces, or new lines"></textarea>' +
+      '<div class="controls" style="margin-top:8px"><button id="addpaste">Add CCNs</button><span id="addpmsg" class="muted small"></span></div></details></div>';
+    h += addCard;
+    if (!rows.length) {
+      app.innerHTML = h + '<div class="card"><p>' + (o.savedId ? 'This portfolio is empty. Add facilities above, or from any facility report or search result.' : 'No facilities to show.') + '</p></div>';
+      wire(); wireAdd(); return;
+    }
 
     h += '<div class="tiles">' +
       tile('Certified beds', fmt(s.beds, 0)) + tile('Avg residents per day', fmt(s.residents, 0)) +
@@ -437,13 +495,49 @@
         b.addEventListener('click', function () {
           var l = loadPortfolios();
           l.forEach(function (p) { if (p.id === o.savedId) p.ccns = p.ccns.filter(function (c) { return c !== b.dataset.rm; }); });
-          savePortfolios(l); renderSaved(o.savedId);
+          savePortfolios(l);
+          drawPortfolio({ title: o.title, ccns: o.ccns.filter(function (c) { return c !== b.dataset.rm; }), savedId: o.savedId, keepScroll: true });
         });
       });
     }
     drawTable();
     wire();
-    window.scrollTo(0, 0);
+    wireAdd();
+    if (!o.keepScroll) window.scrollTo(0, 0);
+
+    function wireAdd() {
+      if (!o.savedId) return;
+      var aq = document.getElementById('addq'), box = document.getElementById('addhits');
+      function refresh() { drawPortfolio({ title: o.title, ccns: (loadPortfolios().filter(function (p) { return p.id === o.savedId; })[0] || { ccns: [] }).ccns, savedId: o.savedId, keepScroll: true }); }
+      function hits() {
+        S.addq = aq.value;
+        if (!aq.value.trim()) { box.innerHTML = ''; return; }
+        var m = matchRows(aq.value, '');
+        box.innerHTML = '<p class="muted small">' + m.length.toLocaleString() + ' matching facilities' + (m.length > 10 ? ', showing the first 10. Add more words to narrow the list' : '') + '.</p>' +
+          (m.length ? '<table><tbody>' + m.slice(0, 10).map(function (r) {
+            var inP = o.ccns.indexOf(r[0]) !== -1;
+            return '<tr><td>' + esc(r[1]) + '<div class="muted small">' + esc(r[0]) + ' · ' + esc(r[2]) + ', ' + esc(r[3]) + (r[6] ? ' · ' + esc(r[6]) : '') + '</div></td><td class="n"><button data-add="' + esc(r[0]) + '"' + (inP ? ' disabled' : '') + '>' + (inP ? 'In portfolio' : '+ Add') + '</button></td></tr>';
+          }).join('') + '</tbody></table>' : '');
+        Array.prototype.forEach.call(box.querySelectorAll('[data-add]'), function (b) {
+          b.addEventListener('click', function () { if (addCcns(o.savedId, [b.dataset.add])) refresh(); });
+        });
+      }
+      aq.addEventListener('input', hits);
+      if (o.keepScroll && S.addq) { aq.value = S.addq; hits(); aq.focus(); }
+      else S.addq = '';
+      document.getElementById('addpaste').addEventListener('click', function () {
+        var ccns = Rollup.parseCcns(document.getElementById('addccns').value), msg = document.getElementById('addpmsg');
+        if (!ccns.length) { msg.textContent = 'No valid CCNs found.'; return; }
+        if (addCcns(o.savedId, ccns)) { S.addq = ''; refresh(); } else msg.textContent = 'Could not save.';
+      });
+      document.getElementById('prename').addEventListener('click', function () {
+        var name = prompt('New name for this portfolio', o.title);
+        if (!name || !name.trim()) return;
+        var l = loadPortfolios();
+        l.forEach(function (p) { if (p.id === o.savedId) p.name = name.trim(); });
+        if (savePortfolios(l)) renderSaved(o.savedId);
+      });
+    }
 
     function wire() {
       var link = location.origin + location.pathname + '#/p/' + o.ccns.join(',');

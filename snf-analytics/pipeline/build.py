@@ -47,6 +47,16 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version):
     shutil.copytree(site_src, out_dir)
     os.makedirs(os.path.join(out_dir, "data", "f"))
 
+    # Version the script and style links so browsers never run a stale copy
+    index_path = os.path.join(out_dir, "index.html")
+    with open(index_path, encoding="utf-8") as f:
+        html = f.read()
+    stamp = f"{pipeline_version}-{built_at}".replace(":", "")
+    for asset in ("styles.css", "rollup.js", "app.js"):
+        html = html.replace(f'"{asset}"', f'"{asset}?v={stamp}"')
+    with open(index_path, "w", encoding="utf-8") as f:
+        f.write(html)
+
     providers = data["provider"]
     averages = {r["State or Nation"]: r for r in data["averages"]}
     avg_cols = {_norm(c): c for c in data["averages"][0].keys()}
