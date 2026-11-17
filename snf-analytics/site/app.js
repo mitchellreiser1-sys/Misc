@@ -403,7 +403,7 @@
 
   var PCOLS = [
     ['Facility', IX.name, 's'], ['State', IX.state, 's'], ['Beds', IX.beds, 0], ['Avg residents', IX.residents, 1], ['Occupancy (derived)', 'occ', 'p'],
-    ['Overall', IX.overall, '*'], ['Health', IX.health, '*'], ['Staffing', IX.staffing, '*'], ['QM', IX.qm, '*'],
+    ['Overall ★', IX.overall, '*'], ['Health ★', IX.health, '*'], ['Staffing ★', IX.staffing, '*'], ['QM ★', IX.qm, '*'],
     ['Nurse HPRD', IX.hprd, 2], ['RN HPRD', IX.rnHprd, 2], ['Turnover %', IX.turnover, 1],
     ['Cycle 1 defs', IX.c1defs, 0], ['Weighted score', IX.weighted, 1], ['Harm cites', IX.harm, 0], ['IJ cites', IX.jeopardy, 0],
     ['Fines', IX.fines, 0], ['Fine $', IX.fineTotal, '$'], ['Pay denials', IX.denials, 0], ['Flags', 'flags', 'f']
@@ -415,19 +415,18 @@
     o.ccns.forEach(function (c) { if (map[c]) rows.push(map[c]); else missing.push(c); });
     var s = Rollup.summarize(rows), nat = S.lookups.benchmarks.NATION.ratings;
     var sort = { key: IX.name, dir: 1 };
+    var US = S.lookups.benchmarks.NATION;
     function avg(m, dec) { return m.avg == null ? NA : fmt(m.avg, dec); }
-    function tile(k, v, sub) { return '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div>' + (sub ? '<div class="s">' + sub + '</div>' : '') + '</div>'; }
-    function rtile(label, key, natKey, chainVal) {
-      var m = s.ratings[key];
-      return tile(label, avg(m, 2), m.n + ' of ' + s.facilities + ' rated · US ' + fmt(nat[natKey], 1) + (o.chain ? ' · CMS chain avg ' + fmt(chainVal, 1) : ''));
-    }
-    var h = '<a class="back" href="#/portfolios">← Portfolios</a> <span style="float:right" class="controls">' +
-      (o.savedId ? '<button id="prename">Rename</button>' : '<button id="psave">Save as portfolio</button>') +
-      '<button id="plink">Copy link</button><button id="pcsv">Download CSV</button><button onclick="window.print()">Print or save as PDF</button></span>' +
-      '<div class="card" style="clear:both"><h1>' + esc(o.title) + '</h1><div class="muted">' + (o.chain ? 'CMS chain · ' : '') + s.facilities.toLocaleString() + ' facilities in the current CMS release' +
-      (o.chain && o.chain.count != null ? ' (CMS reports ' + o.chain.count + ')' : '') + '</div>' +
-      (missing.length ? '<p class="chip warn" style="display:inline-block;margin-top:10px">' + missing.length + ' CCN' + (missing.length > 1 ? 's' : '') + ' not in the current CMS release: ' + esc(missing.join(', ')) + '</p><p class="muted small">A CCN drops out when a facility closes, loses certification, or receives a new CCN. These are excluded from every figure below.</p>' : '') + '</div>';
-    var addCard = !o.savedId ? '' : '<div class="card"><h2>Add facilities</h2>' +
+    function pct(n) { return s.facilities ? fmt(100 * n / s.facilities, 1) + '%' : ''; }
+    var h = '<a class="back" href="#/portfolios">← All portfolios</a>' +
+      '<div class="phead"><div><h1>' + esc(o.title) + '</h1><div class="sub">' + (o.chain ? 'CMS chain · ' : o.savedId ? 'Saved portfolio · ' : 'Unsaved list · ') +
+      s.facilities.toLocaleString() + (s.facilities === 1 ? ' facility' : ' facilities') +
+      (o.chain && o.chain.count != null && o.chain.count !== s.facilities ? ' (CMS reports ' + o.chain.count + ')' : '') + ' · CMS data as of ' + fdate(S.manifest.processing_date) + '</div></div>' +
+      '<div class="controls">' + (o.savedId ? '<button id="prename">Rename</button>' : '<button id="psave" class="primary">Save as portfolio</button>') +
+      '<button id="plink">Copy link</button><button id="pcsv">Download CSV</button><button onclick="window.print()">Print / PDF</button></div></div>' +
+      (missing.length ? '<div class="callout"><strong>' + missing.length + ' CCN' + (missing.length > 1 ? 's are' : ' is') + ' not in the current CMS release:</strong> ' + esc(missing.join(', ')) +
+        '<div class="small muted" style="margin-top:4px">A CCN drops out when a facility closes, loses certification, or receives a new CCN. These are excluded from every figure below.</div></div>' : '');
+    var addCard = !o.savedId ? '' : '<div class="card addcard"><h2>Add facilities</h2>' +
       '<div class="controls"><input id="addq" type="search" placeholder="Search by facility name, CCN, city, county, ZIP, or chain"></div><div id="addhits"></div>' +
       '<details style="margin-top:8px"><summary class="small">Paste a list of CCNs instead</summary><textarea id="addccns" rows="3" style="margin-top:8px" placeholder="CCNs separated by commas, spaces, or new lines"></textarea>' +
       '<div class="controls" style="margin-top:8px"><button id="addpaste">Add CCNs</button><span id="addpmsg" class="muted small"></span></div></details></div>';
@@ -437,36 +436,82 @@
       wire(); wireAdd(); return;
     }
 
-    h += '<div class="tiles">' +
-      tile('Certified beds', fmt(s.beds, 0)) + tile('Avg residents per day', fmt(s.residents, 0)) +
-      tile('Occupancy (derived)', s.occupancy == null ? NA : fmt(s.occupancy * 100, 1) + '%', 'Residents ÷ beds, ' + s.occupancyFacilities + ' facilities reporting both') +
-      rtile('Avg overall rating', 'overall', 'Overall Rating', o.chain && o.chain.overall) + rtile('Avg health inspection', 'health', 'Health Inspection Rating', o.chain && o.chain.health) +
-      rtile('Avg staffing rating', 'staffing', 'Staffing Rating', o.chain && o.chain.staffing) + rtile('Avg QM rating', 'qm', 'QM Rating', o.chain && o.chain.qm) +
-      tile('1-star overall', fmt(s.oneStar, 0), 'facilities') +
-      tile('SFF / candidates', s.sff + ' / ' + s.sffCandidates) + tile('Abuse icon', fmt(s.abuse, 0), 'facilities') +
-      tile('Changed ownership', fmt(s.chow, 0), 'in last 12 months') +
-      tile('Immediate jeopardy', fmt(s.jeopardy, 0), 'health citations at ' + s.facilitiesWithJeopardy + ' facilities, last 3 cycles') +
-      tile('Actual harm', fmt(s.harm, 0), 'health citations, last 3 cycles') +
-      tile('Fines (3 years)', money(s.fineTotal), s.fines + ' fines · ' + s.denials + ' payment denials') +
-      tile('Avg nurse HPRD', avg(s.hprd, 2), 'simple average, ' + s.hprd.n + ' reporting') + tile('Avg turnover', s.turnover.avg == null ? NA : fmt(s.turnover.avg, 1) + '%', 'simple average, ' + s.turnover.n + ' reporting') +
-      '</div>';
+    /* Overview */
+    h += '<div class="card strip">' +
+      '<div class="stat"><div class="k">Facilities</div><div class="v">' + fmt(s.facilities, 0) + '</div></div>' +
+      '<div class="stat"><div class="k">Certified beds</div><div class="v">' + fmt(s.beds, 0) + '</div></div>' +
+      '<div class="stat"><div class="k">Average residents per day</div><div class="v">' + fmt(s.residents, 0) + '</div></div>' +
+      '<div class="stat"><div class="k">Occupancy (derived)</div><div class="v">' + (s.occupancy == null ? NA : fmt(s.occupancy * 100, 1) + '%') + '</div>' +
+      (s.occupancy == null ? '' : '<div class="meter" role="img" aria-label="Occupancy ' + fmt(s.occupancy * 100, 1) + ' percent"><i style="width:' + Math.min(100, s.occupancy * 100).toFixed(1) + '%"></i></div>') +
+      '<div class="s">Residents ÷ beds at ' + s.occupancyFacilities + ' facilities reporting both</div></div></div>';
 
+    /* Star ratings */
     var D = s.distribution;
-    h += '<div class="card"><h2>Rating distribution</h2><div class="scroll"><table style="max-width:680px"><thead><tr><th>Rating</th><th class="n">Overall</th><th class="n">Health inspection</th><th class="n">Staffing</th><th class="n">Quality measures</th></tr></thead><tbody>' +
+    var legend = '<span class="legend">' + [1, 2, 3, 4, 5].map(function (k) { return '<span><i class="s' + k + '"></i>' + k + ' star' + (k > 1 ? 's' : '') + '</span>'; }).join('') + '<span><i class="sna"></i>Not rated</span></span>';
+    function seg(key, label) {
+      var d = D[key], total = s.facilities;
+      var parts = [1, 2, 3, 4, 5, 'unrated'].map(function (k) {
+        var n = d[k];
+        if (!n) return '';
+        var share = n / total, name = k === 'unrated' ? 'Not rated' : k + (k === 1 ? ' star' : ' stars');
+        return '<span class="' + (k === 'unrated' ? 'sna' : 's' + k) + (share < 0.07 ? ' tight' : '') + '" style="flex:' + n + ' 1 0" tabindex="0" data-tip="' + esc(label + ', ' + name + ': ' + n + ' of ' + total + ' facilities (' + fmt(share * 100, 1) + '%)') + '">' + (share < 0.07 ? '' : n) + '</span>';
+      }).join('');
+      return '<div class="seg" role="img" aria-label="' + esc(label + ' distribution: ' + [1, 2, 3, 4, 5].map(function (k) { return d[k] + ' at ' + k + ' star' + (k > 1 ? 's' : ''); }).join(', ') + ', ' + d.unrated + ' not rated') + '">' + parts + '</div>';
+    }
+    function rcard(label, key, natKey, chainVal) {
+      var m = s.ratings[key];
+      return '<div class="card rcard"><div class="top2"><div><div class="stat"><div class="k">' + label + '</div></div><div class="v">' + avg(m, 2) + (m.avg == null ? '' : '<span class="stars">★</span>') + '</div></div>' +
+        '<div class="cmp">US average <b>' + fmt(US.ratings[natKey], 1) + '</b>' + (o.chain ? '<br>CMS chain average <b>' + fmt(chainVal, 1) + '</b>' : '') + '<br><span class="muted">' + m.n + ' of ' + s.facilities + ' rated</span></div></div>' + seg(key, label) + '</div>';
+    }
+    h += '<div class="sect"><span>Star ratings <span class="muted" style="font-weight:400">· simple average of rated facilities</span></span>' + legend + '</div><div class="rgrid">' +
+      rcard('Overall rating', 'overall', 'Overall Rating', o.chain && o.chain.overall) + rcard('Health inspection rating', 'health', 'Health Inspection Rating', o.chain && o.chain.health) +
+      rcard('Staffing rating', 'staffing', 'Staffing Rating', o.chain && o.chain.staffing) + rcard('Quality measure rating', 'qm', 'QM Rating', o.chain && o.chain.qm) + '</div>' +
+      '<details style="margin-top:10px"><summary class="small">View rating distribution as a table</summary><div class="card" style="margin-top:10px"><div class="scroll"><table style="max-width:680px"><thead><tr><th>Rating</th><th class="n">Overall</th><th class="n">Health inspection</th><th class="n">Staffing</th><th class="n">Quality measures</th></tr></thead><tbody>' +
       [5, 4, 3, 2, 1, 'unrated'].map(function (k) {
         return '<tr><td>' + (k === 'unrated' ? '<span class="na">Not rated</span>' : stars(k)) + '</td>' + ['overall', 'health', 'staffing', 'qm'].map(function (c) { return '<td class="n">' + D[c][k] + '</td>'; }).join('') + '</tr>';
-      }).join('') + '</tbody></table></div>' +
-      '<p class="src">Portfolio figures are derived from published facility values. Averages are simple averages of facilities with a published value, the method CMS uses for chain averages; the pipeline confirms that method against every CMS chain at each refresh. Source: CMS Provider Information and Health Deficiencies, processing date ' + fdate(S.manifest.processing_date) + '.</p></div>';
+      }).join('') + '</tbody></table></div></div></details>';
 
-    h += '<div class="card"><h2>Facilities</h2><p class="muted small">Select a column heading to sort.</p><div class="scroll" id="ptable"></div></div>';
+    /* Risk indicators */
+    function risk(label, value, sub, share, cls) {
+      var zero = value === 0 || value === '$0';
+      return '<div class="row ' + (cls || '') + '"><div class="lab">' + label + '</div><div class="val' + (zero ? ' zero' : '') + '">' + value + '</div>' +
+        (sub ? '<div class="sub">' + sub + '</div>' : '') +
+        (share == null ? '' : '<div class="meter" aria-hidden="true"><i style="width:' + Math.min(100, share * 100).toFixed(1) + '%"></i></div>') + '</div>';
+    }
+    var n = s.facilities;
+    var fac = function (k) { return k + (k === 1 ? ' facility' : ' facilities'); };
+    h += '<div class="sect"><span>Risk indicators</span></div><div class="card risk"><div>' +
+      risk('Facilities with a 1-star overall rating', s.oneStar, pct(s.oneStar) + ' of facilities', s.oneStar / n) +
+      risk('Special Focus Facilities', s.sff, pct(s.sff) + ' of facilities', s.sff / n) +
+      risk('SFF candidates', s.sffCandidates, pct(s.sffCandidates) + ' of facilities', s.sffCandidates / n) +
+      risk('Facilities with the abuse icon', s.abuse, pct(s.abuse) + ' of facilities', s.abuse / n) +
+      risk('Changed ownership in the last 12 months', s.chow, pct(s.chow) + ' of facilities', s.chow / n) +
+      '</div><div>' +
+      risk('Immediate jeopardy citations', s.jeopardy, 'Scope and severity J to L, last 3 inspection cycles · at ' + fac(s.facilitiesWithJeopardy) + ' (' + pct(s.facilitiesWithJeopardy) + ')', s.facilitiesWithJeopardy / n) +
+      risk('Actual harm citations', s.harm, 'Scope and severity G to I, last 3 inspection cycles') +
+      risk('Fines, last 3 years', money(s.fineTotal), s.fines + (s.fines === 1 ? ' fine' : ' fines')) +
+      risk('Payment denials, last 3 years', s.denials, 'Denials of payment for new admissions') +
+      '</div></div>';
+
+    /* Staffing */
+    function stile(label, m, dec, unit, usKey) {
+      return '<div class="tile"><div class="k">' + label + '</div><div class="v">' + (m.avg == null ? NA : fmt(m.avg, dec) + unit) + '</div><div class="s">US average ' + fmt(US.staffing[usKey], dec) + unit + ' · ' + m.n + ' of ' + n + ' reporting</div></div>';
+    }
+    h += '<div class="sect"><span>Staffing <span class="muted" style="font-weight:400">· simple average of reporting facilities</span></span></div><div class="tiles" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">' +
+      stile('Total nurse hours per resident day', s.hprd, 2, '', 'Total nurse hours per resident day') +
+      stile('RN hours per resident day', s.rnHprd, 2, '', 'RN hours per resident day') +
+      stile('Total nursing staff turnover', s.turnover, 1, '%', 'Total nursing staff turnover (%)') + '</div>';
+
+    h += '<div class="sect"><span>Facilities <span class="muted" style="font-weight:400">· select a column heading to sort</span></span></div><div class="card" style="padding:6px 8px"><div class="scroll ptable" id="ptable"></div></div>' +
+      '<p class="src">Portfolio figures are derived from published facility values. Averages are simple averages of facilities with a published value, the method CMS uses for chain averages; the pipeline confirms that method against every CMS chain at each refresh. Source: CMS Provider Information and Health Deficiencies, processing date ' + fdate(S.manifest.processing_date) + '.</p>';
     app.innerHTML = h;
 
     function cell(r, c) {
       var v = pval(r, c[1]), t = c[2];
       if (t === 'f') return '<td>' + (r[IX.sff] ? '<span class="chip ' + (r[IX.sff] === 'SFF' ? 'bad' : 'warn') + '">' + esc(r[IX.sff]) + '</span> ' : '') + (r[IX.abuse] ? '<span class="chip bad">Abuse</span> ' : '') + (r[IX.chow] ? '<span class="chip warn">CHOW</span>' : '') + '</td>';
-      if (c[1] === IX.name) return '<td><a href="#/f/' + esc(r[0]) + '">' + esc(v) + '</a><div class="muted small">' + esc(r[0]) + ' · ' + esc(r[IX.city]) + '</div></td>';
+      if (c[1] === IX.name) return '<td><a class="fname" href="#/f/' + esc(r[0]) + '">' + esc(v) + '</a><div class="muted small">' + esc(r[0]) + ' · ' + esc(r[IX.city]) + '</div></td>';
       if (t === 's') return '<td>' + esc(v) + '</td>';
-      if (t === '*') return '<td class="n">' + (v == null ? '<span class="na">NR</span>' : v + ' <span class="stars">★</span>') + '</td>';
+      if (t === '*') return '<td class="n">' + (v == null ? '<span class="na" title="Not rated">NR</span>' : '<i class="sw s' + v + '" aria-hidden="true"></i>' + v) + '</td>';
       if (t === 'p') return '<td class="n">' + (v == null ? NA : fmt(v * 100, 1) + '%') + '</td>';
       if (t === '$') return '<td class="n">' + money(v) + '</td>';
       return '<td class="n">' + fmt(v, t) + '</td>';
@@ -480,7 +525,7 @@
         return (x < y ? -1 : x > y ? 1 : 0) * sort.dir;
       });
       document.getElementById('ptable').innerHTML = '<table><thead><tr>' + PCOLS.map(function (c, i) {
-        return '<th class="' + (typeof c[2] === 'number' || '*p$'.indexOf(c[2]) !== -1 ? 'n' : '') + '"' + (c[1] === 'flags' ? '' : ' data-i="' + i + '" style="cursor:pointer"') + '>' + c[0] + (sort.key === c[1] ? (sort.dir > 0 ? ' ▲' : ' ▼') : '') + '</th>';
+        return '<th class="' + (typeof c[2] === 'number' || '*p$'.indexOf(c[2]) !== -1 ? 'n' : '') + (sort.key === c[1] ? ' sorted' : '') + '"' + (c[1] === 'flags' ? '' : ' data-i="' + i + '"') + (sort.key === c[1] ? ' aria-sort="' + (sort.dir > 0 ? 'ascending' : 'descending') + '"' : '') + '>' + c[0] + (sort.key === c[1] ? (sort.dir > 0 ? ' ↑' : ' ↓') : '') + '</th>';
       }).join('') + (o.savedId ? '<th></th>' : '') + '</tr></thead><tbody>' + sorted.map(function (r) {
         return '<tr>' + PCOLS.map(function (c) { return cell(r, c); }).join('') + (o.savedId ? '<td><button data-rm="' + esc(r[0]) + '">Remove</button></td>' : '') + '</tr>';
       }).join('') + '</tbody></table>';
@@ -580,8 +625,32 @@
     document.body.appendChild(a); a.click(); a.remove();
   }
 
+  /* One shared tooltip for chart marks (hover and keyboard focus). */
+  var tip = document.createElement('div');
+  tip.id = 'tip';
+  document.body.appendChild(tip);
+  function showTip(el, x, y) {
+    tip.textContent = el.getAttribute('data-tip');
+    tip.style.display = 'block';
+    var w = tip.offsetWidth, hgt = tip.offsetHeight;
+    tip.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, x - w / 2)) + 'px';
+    tip.style.top = Math.max(8, y - hgt - 12) + 'px';
+  }
+  document.addEventListener('mousemove', function (e) {
+    var el = e.target.closest && e.target.closest('[data-tip]');
+    if (el) showTip(el, e.clientX, e.clientY); else tip.style.display = 'none';
+  });
+  document.addEventListener('focusin', function (e) {
+    var el = e.target.closest && e.target.closest('[data-tip]');
+    if (el) { var r = el.getBoundingClientRect(); showTip(el, r.left + r.width / 2, r.top); }
+  });
+  document.addEventListener('focusout', function () { tip.style.display = 'none'; });
+
   function route() {
     var h = location.hash.replace(/^#\/?/, '');
+    tip.style.display = 'none';
+    var section = h === 'status' ? 'status' : /^(portfolios|portfolio\/|p\/|chain\/)/.test(h) ? 'portfolios' : 'search';
+    Array.prototype.forEach.call(document.querySelectorAll('.top nav a'), function (a) { a.className = a.dataset.nav === section ? 'on' : ''; });
     if (h.indexOf('f/') === 0) renderFacility(decodeURIComponent(h.slice(2)));
     else if (h === 'status') renderStatus();
     else if (h === 'portfolios') renderPortfolios();
