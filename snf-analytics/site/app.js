@@ -385,7 +385,7 @@
         }).join('') + '</tbody></table></div>' : '<p style="margin:0">' + NA + '</p>') + src('Ownership') + '</div>';
 
     h += '<div class="sect noprint" id="sec-narrative"><span>Lender narrative draft <span class="muted" style="font-weight:400">· Subject\'s State Surveys section</span></span></div><div class="card noprint">' +
-      '<p class="muted small" style="margin-top:0">Filled only from the CMS figures on this page, in the wording of approved Bravo narratives. Items CMS does not publish are marked [TBD]. CMS does not publish the date the state approved a plan of correction, so each [TBD] gives the CMS correction date as a reference for locating the letter. Review against the state survey documents before use.</p>' +
+      '<p class="muted small" style="margin-top:0">Filled only from the CMS figures on this page, in the wording of approved Bravo narratives. The POC column shows the correction date CMS publishes for each survey, using the latest date when a survey has more than one, as in approved Bravo narratives. Surveys listed are those with health deficiencies, plus any annual survey with none. Anything CMS does not publish is marked [TBD]. Review against the state survey documents before use.</p>' +
       '<pre id="narr" class="narr"></pre><div class="controls" style="margin:10px 0 0"><button id="narrcopy">Copy text</button><span id="narrmsg" class="muted small"></span></div></div>';
     app.innerHTML = h;
     setPrintFooter('Bravo Capital · SNF Analytics · ' + f.name + ' (CCN ' + f.ccn + ') · CMS data as of ' + fdate(S.manifest.processing_date));
@@ -1263,18 +1263,17 @@
       var kind = x[1] === 'Health Standard' ? 'annual' : x[1] === 'Health Complaint' ? 'complaint' : 'infection control';
       (surveys[x[0]] = surveys[x[0]] || []).push(kind);
     });
+    // The POC column uses CMS's published correction date for each survey (the latest one when
+    // a survey has several), which is what approved Bravo narratives carry in this column.
     var lines = Object.keys(surveys).sort().reverse().map(function (k) {
       var kinds = surveys[k].filter(function (v, i, a) { return a.indexOf(v) === i; });
-      // CMS does not publish the state's POC approval letter. It does publish the date each
-      // cited deficiency was corrected, which is offered as a reference only.
-      var fixed = D.filter(function (x) { return x[1] === 'H' && x[0] === k && x[10]; }).map(function (x) { return x[10]; }).sort();
-      var open = D.filter(function (x) { return x[1] === 'H' && x[0] === k && !x[10]; }).length;
-      var cited = D.filter(function (x) { return x[1] === 'H' && x[0] === k; }).length;
-      var ref = !cited ? ' CMS lists no health deficiencies for this survey.' :
-        (fixed.length ? ' For reference, CMS shows the last deficiency from this survey corrected on ' + d(fixed[fixed.length - 1]) : ' For reference, CMS shows no correction date for this survey') +
-        (open && fixed.length ? ', with ' + open + ' showing no correction date.' : '.');
-      return d(k) + ' (' + kinds.join(' and ') + ') | [TBD - source needed: date state issued letter approving POC, from the state survey documents.' + ref + ']';
-    });
+      var cited = D.filter(function (x) { return x[1] === 'H' && x[0] === k; });
+      var fixed = cited.filter(function (x) { return x[10]; }).map(function (x) { return x[10]; }).sort();
+      if (!cited.length && kinds.indexOf('annual') === -1) return null;   // complaint or infection control visit with nothing cited
+      var poc = !cited.length ? 'No deficiencies cited' : fixed.length ? d(fixed[fixed.length - 1]) :
+        '[TBD - source needed: POC date, from the state survey documents; CMS shows no correction date for this survey]';
+      return d(k) + ' (' + kinds.join(' and ') + ') | ' + poc;
+    }).filter(Boolean);
     var money0 = function (v) { return '$' + Number(v || 0).toLocaleString('en-US', { maximumFractionDigits: 0 }); };
     var pen = (P.fines || 0) + (P.denials || 0) === 0 ?
       'Per CMS data as of ' + asof + ', the subject facility has not received any fines or payment denials within the last three years.' :
