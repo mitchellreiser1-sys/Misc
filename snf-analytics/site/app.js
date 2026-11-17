@@ -224,7 +224,7 @@
     }
     var RK = f.risk, RL = S.lookups.risk;
     var parts = RL.components.filter(function (c) { return RK.parts[c[0]] > 0; });
-    var riskCard = '<div class="card riskcard"><div class="rk-score"><div class="stat"><div class="k">Regulatory screening score <span class="chip tiny">' + esc(RL.version) + '</span></div><div class="v">' + RK.score + '<span class="rk-of"> / 100</span> <span class="chip tier t' + tierIndex(RK.score) + '">' + esc(RK.tier) + '</span></div>' +
+    var riskCard = '<div class="card riskcard"><div class="rk-score"><div class="stat"><div class="k">Regulatory screening score</div><div class="v">' + RK.score + '<span class="rk-of"> / 100</span> <span class="chip tier t' + tierIndex(RK.score) + '">' + esc(RK.tier) + '</span></div>' +
       '<div class="meter risk-meter" role="img" aria-label="Regulatory screening score ' + RK.score + ' of 100"><i style="width:' + RK.score + '%"></i></div>' +
       '<div class="s">Higher than ' + RK.pct_us + '% of facilities nationally and ' + RK.pct_state + '% in ' + esc(f.state) + '. A Bravo screening aid for regulatory risk. Not a CMS figure and not a credit risk measure. <a href="#/risk">How it works</a></div></div></div>' +
       '<div class="rk-parts">' + (parts.length ? '<table><thead><tr><th>What contributes</th><th class="n">Points</th></tr></thead><tbody>' + parts.map(function (c) {
@@ -630,7 +630,7 @@
       '</div><div>' +
       (function () {
         var RL = S.lookups.risk, top = RL.tiers[RL.tiers.length - 1], hi = Rollup.countAtOrAbove(rows, top[0]);
-        return risk('Average regulatory screening score <span class="chip tiny">' + esc(RL.version) + '</span>', s.risk.avg == null ? NA : fmt(s.risk.avg, 0),
+        return risk('Average regulatory screening score', s.risk.avg == null ? NA : fmt(s.risk.avg, 0),
           hi + (hi === 1 ? ' facility scores ' : ' facilities score ') + top[0] + ' or higher (' + esc(top[2].toLowerCase()) + ') · not a CMS figure · <a href="#/risk">How it works</a>', hi / n);
       })() +
       risk('Immediate jeopardy citations', s.jeopardy, 'Scope and severity J to L, last 3 inspection cycles · at ' + fac(s.facilitiesWithJeopardy) + ' (' + pct(s.facilitiesWithJeopardy) + ')', s.facilitiesWithJeopardy / n) +
@@ -875,12 +875,12 @@
       ['Repeat citation tags', (f.repeat || []).join(', ')],
       ['Fines, last 3 years', P.fines], ['Fine dollars, last 3 years', P.fine_total], ['Payment denials, last 3 years', P.denials],
       ['Total weighted health survey score', sv.weighted],
-      ['Regulatory screening score (' + L.risk.version + ', not a CMS figure)', f.risk.score], ['Screening score review tier', f.risk.tier], ['Screening score national percentile', f.risk.pct_us], ['Screening score state percentile', f.risk.pct_state]
+      ['Regulatory screening score (not a CMS figure)', f.risk.score], ['Screening score review tier', f.risk.tier], ['Screening score national percentile', f.risk.pct_us], ['Screening score state percentile', f.risk.pct_state]
     ];
     if (f.pbj) summary.push(['Contract staff share of nurse hours (derived, ' + L.pbj.quarter + ')', Math.round(f.pbj.contract_share * 10000) / 10000], ['Days with no RN hours reported (' + L.pbj.quarter + ')', f.pbj.zero_rn_days]);
     if (f.vbp) summary.push(['FY ' + L.vbp_fy + ' VBP incentive payment multiplier', f.vbp.multiplier], ['FY ' + L.vbp_fy + ' VBP performance score', f.vbp.score], ['FY ' + L.vbp_fy + ' VBP national ranking', f.vbp.ranking]);
     var sheets = [{ name: 'Summary', title: who, noFilter: true, boldFirst: true, columns: [{ header: 'Item', width: 52 }, { header: 'Value', width: 46, wrap: true }], rows: summary }];
-    sheets.push({ name: 'Screening score', title: who + ': regulatory screening score ' + f.risk.score + ' of 100 (' + f.risk.tier + ')', note: L.risk.version + '. A Bravo screening aid for regulatory risk, not a CMS figure.', noFilter: true,
+    sheets.push({ name: 'Screening score', title: who + ': regulatory screening score ' + f.risk.score + ' of 100 (' + f.risk.tier + ')', note: 'A Bravo screening aid for regulatory risk, not a CMS figure.', noFilter: true,
       columns: [{ header: 'Component', width: 34 }, { header: 'How points are assigned', width: 80, wrap: true }, { header: 'Maximum', width: 10, fmt: '0' }, { header: 'Points', width: 9, fmt: '0' }],
       rows: L.risk.components.map(function (c) { return [c[1], c[2], c[3], f.risk.parts[c[0]]]; }).concat([['Total', '', 100, f.risk.score]]) });
     if (f.history) sheets.push({ name: 'Rating history', title: who + ': published star ratings by CMS release',
@@ -926,7 +926,7 @@
       ['Fines, last 3 years', s.fines], ['Fine dollars, last 3 years', s.fineTotal], ['Payment denials, last 3 years', s.denials],
       ['Average total nurse hours per resident day (' + s.hprd.n + ' reporting)', r4(s.hprd.avg)], ['Average RN hours per resident day (' + s.rnHprd.n + ' reporting)', r4(s.rnHprd.avg)],
       ['Average total nursing staff turnover % (' + s.turnover.n + ' reporting)', r4(s.turnover.avg)],
-      ['Average regulatory screening score (' + S.lookups.risk.version + ', not a CMS figure)', r4(s.risk.avg)]
+      ['Average regulatory screening score (not a CMS figure)', r4(s.risk.avg)]
     ];
     if (missing.length) summary.push(['CCNs not in the current CMS release (excluded)', missing.join(', ')]);
     var D = s.distribution;
@@ -1180,7 +1180,7 @@
   function renderRisk() {
     var R = S.lookups.risk, V = R.validation, pc = function (v, d) { return fmt(v * 100, d == null ? 1 : d) + '%'; };
     var p90 = Rollup.scoreAtPercentile(R.us_percentiles, 90), p75 = Rollup.scoreAtPercentile(R.us_percentiles, 75), p50 = Rollup.scoreAtPercentile(R.us_percentiles, 50);
-    var h = printHead('Screening score methodology') + '<div class="phead"><div><h1>Regulatory screening score</h1><div class="sub">' + esc(R.version) + ' · a Bravo screening aid, not a CMS figure and not a credit risk measure</div></div><div class="controls"><button onclick="window.print()">Print / PDF</button></div></div>' +
+    var h = printHead('Screening score methodology') + '<div class="phead"><div><h1>Regulatory screening score</h1><div class="sub">A Bravo screening aid, not a CMS figure and not a credit risk measure</div></div><div class="controls"><button onclick="window.print()">Print / PDF</button></div></div>' +
       '<div class="card"><h2>What it is</h2><p style="margin-top:0">A points score whose components add to exactly 100, where higher means more regulatory risk. Every input is a value CMS publishes or a simple count of published records, and every facility report shows the points behind its score.</p>' +
       '<p style="margin-bottom:0">It is a screening aid: it shows where to look first. It measures regulatory risk only. It has not been tested against credit outcomes such as defaults or operating losses, and it should not be used alone in a credit decision or a lender narrative.</p>' +
       '<p class="muted" style="margin-bottom:0">In the current release the median facility scores ' + p50 + ', the top quarter starts at ' + p75 + ', and the top 10% starts at ' + p90 + '.</p></div>';
@@ -1192,7 +1192,7 @@
 
     if (V) {
       var avgAuc = V.pooled_auc, cms = V.pooled_auc_cms;
-      h += '<div class="sect"><span>How well it works <span class="muted" style="font-weight:400">· validation study run ' + fdate(V.run_date) + '</span></span></div>' +
+      h += '<div class="sect"><span>How well it works <span class="muted" style="font-weight:400">· validation study run ' + fdate(V.run_date) + ' on scoring rules ' + esc(V.version.toLowerCase()) + '</span></span></div>' +
         '<div class="card"><p style="margin-top:0">Every facility was scored using only what CMS had published on October 1 of three different years. The following 12 months were then checked for a serious regulatory event: an immediate jeopardy citation or payment denial dated in that period, or new SFF or SFF candidate status.</p>' +
         '<div class="tiles" style="margin-bottom:6px">' +
         '<div class="tile"><div class="k">Ranking accuracy</div><div class="v">' + pc(avgAuc, 0) + '</div><div class="s">Given one facility that had an event and one that did not, the score ranks the event facility higher this often. 50% is a coin flip, 100% is perfect.</div></div>' +
@@ -1245,7 +1245,7 @@
         }).join('') + '</div>';
     }
     app.innerHTML = h;
-    setPrintFooter('Bravo Capital · SNF Analytics · Regulatory screening score methodology · ' + R.version);
+    setPrintFooter('Bravo Capital · SNF Analytics · Regulatory screening score methodology');
     window.scrollTo(0, 0);
   }
 
