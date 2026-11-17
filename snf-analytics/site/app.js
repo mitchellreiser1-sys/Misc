@@ -4,7 +4,21 @@
   'use strict';
   var app = document.getElementById('app');
   var S = { index: null, lookups: null, manifest: null, q: '', state: '' };
-  var IX = { ccn: 0, name: 1, city: 2, state: 3, zip: 4, county: 5, chain: 6, overall: 7, beds: 8, sff: 9, abuse: 10 };
+  var IX = Rollup.IX;
+  var STORE = 'snf.portfolios.v1';
+
+  /* Saved portfolios live only in this browser's storage. Names never leave the device. */
+  function loadPortfolios() {
+    try { var v = JSON.parse(localStorage.getItem(STORE) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+  }
+  function savePortfolios(list) {
+    try { localStorage.setItem(STORE, JSON.stringify(list)); return true; } catch (e) { return false; }
+  }
+  function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function byCcn() {
+    if (!S.map) { S.map = {}; S.index.forEach(function (r) { S.map[r[0]] = r; }); }
+    return S.map;
+  }
 
   function esc(v) {
     return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
@@ -75,7 +89,8 @@
     });
     var shown = hits.slice(0, 200);
     el.innerHTML = '<p class="muted small">' + hits.length.toLocaleString() + ' matching facilities' +
-      (hits.length > shown.length ? ', showing the first ' + shown.length : '') + '.</p>' +
+      (hits.length > shown.length ? ', showing the first ' + shown.length : '') + '.' +
+      (hits.length && hits.length <= 1000 ? ' <a href="#/p/' + hits.map(function (r) { return r[0]; }).join(',') + '">View these as a portfolio</a>' : '') + '</p>' +
       '<div class="scroll"><table><thead><tr><th>Facility</th><th>CCN</th><th>City</th><th>State</th><th>Chain</th><th class="n">Beds</th><th>Overall rating</th><th>Flags</th></tr></thead><tbody>' +
       shown.map(function (r) {
         var flags = (r[IX.sff] ? '<span class="chip ' + (r[IX.sff] === 'SFF' ? 'bad' : 'warn') + '">' + esc(r[IX.sff]) + '</span> ' : '') +
@@ -110,7 +125,10 @@
     var L = S.lookups, bs = L.benchmarks[f.state] || { staffing: {}, qm: {}, ratings: {} }, bn = L.benchmarks.NATION;
     var asof = fdate(S.manifest.processing_date);
     var src = function (file) { return '<p class="src">Source: CMS ' + esc(file) + ', processing date ' + asof + '.</p>'; };
-    var h = '<a class="back" href="#/">← Back to search</a> <button onclick="window.print()" style="float:right">Print or save as PDF</button>';
+    var saved = loadPortfolios();
+    var h = '<a class="back" href="#/">← Back to search</a> <span style="float:right" class="controls">' +
+      (saved.length ? '<select id="addsel" aria-label="Portfolio">' + saved.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') + '</select><button id="addbtn">Add to portfolio</button>' : '') +
+      '<button onclick="window.print()">Print or save as PDF</button></span>';
 
     /* header */
     var chips = [];
@@ -123,14 +141,15 @@
     if (f.high_performing) chips.push(['good', 'High performing icon']);
     if (f.in_hospital) chips.push(['', 'Resides in hospital']);
     if (f.ccrc) chips.push(['', 'Continuing care retirement community']);
-    h += '<div class="card"><h1>' + esc(f.name) + '</h1><div class="muted">CCN ' + esc(f.ccn) + ' · ' + esc(f.address) + ', ' + esc(f.city) + ', ' +
+    h += '<div class="card" style="clear:both"><h1>' + esc(f.name) + '</h1><div class="muted">CCN ' + esc(f.ccn) + ' · ' + esc(f.address) + ', ' + esc(f.city) + ', ' +
       esc(f.state) + ' ' + esc(f.zip) + (f.county ? ' · ' + esc(f.county) + ' County' : '') + '</div>' +
       '<div class="muted small" style="margin-top:6px">' + [f.ownership_type, f.provider_type,
         f.urban == null ? null : (f.urban ? 'Urban' : 'Rural'),
         f.certified ? 'Certified ' + fdate(f.certified) : null,
         f.legal_name && f.legal_name !== f.name ? 'Legal name: ' + f.legal_name : null,
-        f.chain ? 'Chain: ' + f.chain.name + (f.chain.count ? ' (' + f.chain.count + ' facilities' + (f.chain.avg_overall != null ? ', average overall rating ' + f.chain.avg_overall : '') + ')' : '') : 'No chain reported'
-      ].filter(Boolean).map(esc).join(' · ') + '</div>' +
+        f.chain ? null : 'No chain reported'
+      ].filter(Boolean).map(esc).join(' · ') +
+      (f.chain ? ' · Chain: <a href="#/chain/' + esc(f.chain.id) + '">' + esc(f.chain.name) + '</a>' + (f.chain.count ? ' (' + esc(f.chain.count) + ' facilities)' : '') : '') + '</div>' +
       (chips.length ? '<div class="chips">' + chips.map(function (c) { return '<span class="chip ' + c[0] + '">' + esc(c[1]) + '</span>'; }).join('') + '</div>' : '') +
       '</div>';
 
@@ -249,6 +268,12 @@
     }
     ['fH', 'fF', 'fG'].forEach(function (id) { document.getElementById(id).addEventListener('change', drawDefs); });
     drawDefs();
+    var addbtn = document.getElementById('addbtn');
+    if (addbtn) addbtn.addEventListener('click', function () {
+      var list = loadPortfolios(), id = document.getElementById('addsel').value;
+      list.forEach(function (p) { if (p.id === id && p.ccns.indexOf(f.ccn) === -1) p.ccns.push(f.ccn); });
+      addbtn.textContent = savePortfolios(list) ? 'Added' : 'Could not save';
+    });
     window.scrollTo(0, 0);
   }
 
@@ -269,10 +294,206 @@
       }).join('') + '</tbody></table></div></div>';
   }
 
+  /* ---------- Portfolios ---------- */
+  function renderPortfolios() {
+    var list = loadPortfolios();
+    app.innerHTML = '<div class="card"><h1>Portfolios</h1>' +
+      '<p class="muted">Saved portfolios are stored only in this browser. Names and lists are not uploaded anywhere and will not appear on another device. Use "Copy link" inside a portfolio to move a list between devices; the link carries CCNs only, not the name.</p>' +
+      (list.length ? '<div class="scroll"><table><thead><tr><th>Name</th><th class="n">Facilities</th><th></th></tr></thead><tbody>' +
+        list.map(function (p) {
+          return '<tr><td><a href="#/portfolio/' + esc(p.id) + '">' + esc(p.name) + '</a></td><td class="n">' + p.ccns.length + '</td><td><button data-del="' + esc(p.id) + '">Delete</button></td></tr>';
+        }).join('') + '</tbody></table></div>' : '<p>No saved portfolios yet.</p>') + '</div>' +
+      '<div class="card"><h2>New portfolio</h2><div class="controls"><input id="pname" type="search" placeholder="Portfolio name" style="max-width:340px"></div>' +
+      '<textarea id="pccns" rows="5" placeholder="Paste CCNs separated by commas, spaces, or new lines. Leading zeros dropped by Excel are restored."></textarea>' +
+      '<div class="controls" style="margin-top:10px"><button id="pcreate">Save portfolio</button><span id="pmsg" class="muted small"></span></div></div>' +
+      '<div class="card"><h2>CMS chains</h2><p class="muted">Every chain CMS identifies is available as a ready-made portfolio.</p>' +
+      '<div class="controls"><input id="cq" type="search" placeholder="Chain name"></div><div id="chains"></div></div>';
+    Array.prototype.forEach.call(app.querySelectorAll('[data-del]'), function (b) {
+      b.addEventListener('click', function () {
+        if (!confirm('Delete this saved portfolio from this browser?')) return;
+        savePortfolios(loadPortfolios().filter(function (p) { return p.id !== b.dataset.del; }));
+        renderPortfolios();
+      });
+    });
+    document.getElementById('pcreate').addEventListener('click', function () {
+      var name = document.getElementById('pname').value.trim(), ccns = Rollup.parseCcns(document.getElementById('pccns').value), msg = document.getElementById('pmsg');
+      if (!name) { msg.textContent = 'Enter a name.'; return; }
+      if (!ccns.length) { msg.textContent = 'No valid CCNs found.'; return; }
+      var l = loadPortfolios(), p = { id: newId(), name: name, ccns: ccns };
+      l.push(p);
+      if (!savePortfolios(l)) { msg.textContent = 'This browser would not save the portfolio. Use the link view instead.'; return; }
+      location.hash = '#/portfolio/' + p.id;
+    });
+    var cq = document.getElementById('cq');
+    function drawChains() {
+      var t = cq.value.toLowerCase().trim(), C = S.lookups.chains;
+      var ids = Object.keys(C).filter(function (id) { return !t || C[id].name.toLowerCase().indexOf(t) !== -1; })
+        .sort(function (a, b) { return (C[b].count || 0) - (C[a].count || 0); });
+      document.getElementById('chains').innerHTML = '<p class="muted small">' + ids.length + ' chains' + (ids.length > 50 ? ', showing the 50 largest' : '') + '.</p><div class="scroll"><table><thead><tr><th>Chain</th><th class="n">Facilities</th><th class="n">Avg overall rating (CMS)</th></tr></thead><tbody>' +
+        ids.slice(0, 50).map(function (id) {
+          return '<tr><td><a href="#/chain/' + esc(id) + '">' + esc(C[id].name) + '</a></td><td class="n">' + fmt(C[id].count, 0) + '</td><td class="n">' + fmt(C[id].overall, 1) + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+    cq.addEventListener('input', drawChains);
+    drawChains();
+  }
+
+  function renderSaved(id) {
+    var p = loadPortfolios().filter(function (x) { return x.id === id; })[0];
+    if (!p) { app.innerHTML = '<a class="back" href="#/portfolios">← Portfolios</a><div class="card"><h1>Portfolio not found</h1><p>This portfolio is not saved in this browser.</p></div>'; return; }
+    drawPortfolio({ title: p.name, ccns: p.ccns, savedId: p.id });
+  }
+
+  function renderChain(id) {
+    var c = S.lookups.chains[id];
+    if (!c) { app.innerHTML = '<a class="back" href="#/portfolios">← Portfolios</a><div class="card"><h1>Chain not found</h1><p>No chain with ID ' + esc(id) + ' is in the current CMS release.</p></div>'; return; }
+    var ccns = S.index.filter(function (r) { return r[IX.chainId] === id; }).map(function (r) { return r[0]; });
+    drawPortfolio({ title: c.name, ccns: ccns, chain: c });
+  }
+
+  var PCOLS = [
+    ['Facility', IX.name, 's'], ['State', IX.state, 's'], ['Beds', IX.beds, 0], ['Avg residents', IX.residents, 1], ['Occupancy (derived)', 'occ', 'p'],
+    ['Overall', IX.overall, '*'], ['Health', IX.health, '*'], ['Staffing', IX.staffing, '*'], ['QM', IX.qm, '*'],
+    ['Nurse HPRD', IX.hprd, 2], ['RN HPRD', IX.rnHprd, 2], ['Turnover %', IX.turnover, 1],
+    ['Cycle 1 defs', IX.c1defs, 0], ['Weighted score', IX.weighted, 1], ['Harm cites', IX.harm, 0], ['IJ cites', IX.jeopardy, 0],
+    ['Fines', IX.fines, 0], ['Fine $', IX.fineTotal, '$'], ['Pay denials', IX.denials, 0], ['Flags', 'flags', 'f']
+  ];
+  function pval(r, key) { return key === 'occ' ? (r[IX.beds] && r[IX.residents] != null ? r[IX.residents] / r[IX.beds] : null) : r[key]; }
+
+  function drawPortfolio(o) {
+    var map = byCcn(), rows = [], missing = [];
+    o.ccns.forEach(function (c) { if (map[c]) rows.push(map[c]); else missing.push(c); });
+    var s = Rollup.summarize(rows), nat = S.lookups.benchmarks.NATION.ratings;
+    var sort = { key: IX.name, dir: 1 };
+    function avg(m, dec) { return m.avg == null ? NA : fmt(m.avg, dec); }
+    function tile(k, v, sub) { return '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div>' + (sub ? '<div class="s">' + sub + '</div>' : '') + '</div>'; }
+    function rtile(label, key, natKey, chainVal) {
+      var m = s.ratings[key];
+      return tile(label, avg(m, 2), m.n + ' of ' + s.facilities + ' rated · US ' + fmt(nat[natKey], 1) + (o.chain ? ' · CMS chain avg ' + fmt(chainVal, 1) : ''));
+    }
+    var h = '<a class="back" href="#/portfolios">← Portfolios</a> <span style="float:right" class="controls">' +
+      (o.savedId ? '' : '<button id="psave">Save as portfolio</button>') +
+      '<button id="plink">Copy link</button><button id="pcsv">Download CSV</button><button onclick="window.print()">Print or save as PDF</button></span>' +
+      '<div class="card" style="clear:both"><h1>' + esc(o.title) + '</h1><div class="muted">' + (o.chain ? 'CMS chain · ' : '') + s.facilities.toLocaleString() + ' facilities in the current CMS release' +
+      (o.chain && o.chain.count != null ? ' (CMS reports ' + o.chain.count + ')' : '') + '</div>' +
+      (missing.length ? '<p class="chip warn" style="display:inline-block;margin-top:10px">' + missing.length + ' CCN' + (missing.length > 1 ? 's' : '') + ' not in the current CMS release: ' + esc(missing.join(', ')) + '</p><p class="muted small">A CCN drops out when a facility closes, loses certification, or receives a new CCN. These are excluded from every figure below.</p>' : '') + '</div>';
+    if (!rows.length) { app.innerHTML = h + '<div class="card"><p>No facilities to show.</p></div>'; wire(); return; }
+
+    h += '<div class="tiles">' +
+      tile('Certified beds', fmt(s.beds, 0)) + tile('Avg residents per day', fmt(s.residents, 0)) +
+      tile('Occupancy (derived)', s.occupancy == null ? NA : fmt(s.occupancy * 100, 1) + '%', 'Residents ÷ beds, ' + s.occupancyFacilities + ' facilities reporting both') +
+      rtile('Avg overall rating', 'overall', 'Overall Rating', o.chain && o.chain.overall) + rtile('Avg health inspection', 'health', 'Health Inspection Rating', o.chain && o.chain.health) +
+      rtile('Avg staffing rating', 'staffing', 'Staffing Rating', o.chain && o.chain.staffing) + rtile('Avg QM rating', 'qm', 'QM Rating', o.chain && o.chain.qm) +
+      tile('1-star overall', fmt(s.oneStar, 0), 'facilities') +
+      tile('SFF / candidates', s.sff + ' / ' + s.sffCandidates) + tile('Abuse icon', fmt(s.abuse, 0), 'facilities') +
+      tile('Changed ownership', fmt(s.chow, 0), 'in last 12 months') +
+      tile('Immediate jeopardy', fmt(s.jeopardy, 0), 'health citations at ' + s.facilitiesWithJeopardy + ' facilities, last 3 cycles') +
+      tile('Actual harm', fmt(s.harm, 0), 'health citations, last 3 cycles') +
+      tile('Fines (3 years)', money(s.fineTotal), s.fines + ' fines · ' + s.denials + ' payment denials') +
+      tile('Avg nurse HPRD', avg(s.hprd, 2), 'simple average, ' + s.hprd.n + ' reporting') + tile('Avg turnover', s.turnover.avg == null ? NA : fmt(s.turnover.avg, 1) + '%', 'simple average, ' + s.turnover.n + ' reporting') +
+      '</div>';
+
+    var D = s.distribution;
+    h += '<div class="card"><h2>Rating distribution</h2><div class="scroll"><table style="max-width:680px"><thead><tr><th>Rating</th><th class="n">Overall</th><th class="n">Health inspection</th><th class="n">Staffing</th><th class="n">Quality measures</th></tr></thead><tbody>' +
+      [5, 4, 3, 2, 1, 'unrated'].map(function (k) {
+        return '<tr><td>' + (k === 'unrated' ? '<span class="na">Not rated</span>' : stars(k)) + '</td>' + ['overall', 'health', 'staffing', 'qm'].map(function (c) { return '<td class="n">' + D[c][k] + '</td>'; }).join('') + '</tr>';
+      }).join('') + '</tbody></table></div>' +
+      '<p class="src">Portfolio figures are derived from published facility values. Averages are simple averages of facilities with a published value, the method CMS uses for chain averages; the pipeline confirms that method against every CMS chain at each refresh. Source: CMS Provider Information and Health Deficiencies, processing date ' + fdate(S.manifest.processing_date) + '.</p></div>';
+
+    h += '<div class="card"><h2>Facilities</h2><p class="muted small">Select a column heading to sort.</p><div class="scroll" id="ptable"></div></div>';
+    app.innerHTML = h;
+
+    function cell(r, c) {
+      var v = pval(r, c[1]), t = c[2];
+      if (t === 'f') return '<td>' + (r[IX.sff] ? '<span class="chip ' + (r[IX.sff] === 'SFF' ? 'bad' : 'warn') + '">' + esc(r[IX.sff]) + '</span> ' : '') + (r[IX.abuse] ? '<span class="chip bad">Abuse</span> ' : '') + (r[IX.chow] ? '<span class="chip warn">CHOW</span>' : '') + '</td>';
+      if (c[1] === IX.name) return '<td><a href="#/f/' + esc(r[0]) + '">' + esc(v) + '</a><div class="muted small">' + esc(r[0]) + ' · ' + esc(r[IX.city]) + '</div></td>';
+      if (t === 's') return '<td>' + esc(v) + '</td>';
+      if (t === '*') return '<td class="n">' + (v == null ? '<span class="na">NR</span>' : v + ' <span class="stars">★</span>') + '</td>';
+      if (t === 'p') return '<td class="n">' + (v == null ? NA : fmt(v * 100, 1) + '%') + '</td>';
+      if (t === '$') return '<td class="n">' + money(v) + '</td>';
+      return '<td class="n">' + fmt(v, t) + '</td>';
+    }
+    function drawTable() {
+      var sorted = rows.slice().sort(function (a, b) {
+        var x = pval(a, sort.key), y = pval(b, sort.key);
+        if (x == null && y == null) return 0;
+        if (x == null) return 1;
+        if (y == null) return -1;
+        return (x < y ? -1 : x > y ? 1 : 0) * sort.dir;
+      });
+      document.getElementById('ptable').innerHTML = '<table><thead><tr>' + PCOLS.map(function (c, i) {
+        return '<th class="' + (typeof c[2] === 'number' || '*p$'.indexOf(c[2]) !== -1 ? 'n' : '') + '"' + (c[1] === 'flags' ? '' : ' data-i="' + i + '" style="cursor:pointer"') + '>' + c[0] + (sort.key === c[1] ? (sort.dir > 0 ? ' ▲' : ' ▼') : '') + '</th>';
+      }).join('') + (o.savedId ? '<th></th>' : '') + '</tr></thead><tbody>' + sorted.map(function (r) {
+        return '<tr>' + PCOLS.map(function (c) { return cell(r, c); }).join('') + (o.savedId ? '<td><button data-rm="' + esc(r[0]) + '">Remove</button></td>' : '') + '</tr>';
+      }).join('') + '</tbody></table>';
+      Array.prototype.forEach.call(document.querySelectorAll('#ptable th[data-i]'), function (th) {
+        th.addEventListener('click', function () {
+          var key = PCOLS[+th.dataset.i][1];
+          sort = sort.key === key ? { key: key, dir: -sort.dir } : { key: key, dir: 1 };
+          drawTable();
+        });
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('#ptable [data-rm]'), function (b) {
+        b.addEventListener('click', function () {
+          var l = loadPortfolios();
+          l.forEach(function (p) { if (p.id === o.savedId) p.ccns = p.ccns.filter(function (c) { return c !== b.dataset.rm; }); });
+          savePortfolios(l); renderSaved(o.savedId);
+        });
+      });
+    }
+    drawTable();
+    wire();
+    window.scrollTo(0, 0);
+
+    function wire() {
+      var link = location.origin + location.pathname + '#/p/' + o.ccns.join(',');
+      var pl = document.getElementById('plink'), ps = document.getElementById('psave'), pc = document.getElementById('pcsv');
+      pl.addEventListener('click', function () {
+        if (navigator.clipboard) navigator.clipboard.writeText(link).then(function () { pl.textContent = 'Link copied'; }, function () { prompt('Copy this link', link); });
+        else prompt('Copy this link', link);
+      });
+      if (ps) ps.addEventListener('click', function () {
+        var name = prompt('Portfolio name (saved in this browser only)', o.title === 'Portfolio' ? '' : o.title);
+        if (!name || !name.trim()) return;
+        var l = loadPortfolios(), p = { id: newId(), name: name.trim(), ccns: o.ccns.slice() };
+        l.push(p);
+        if (savePortfolios(l)) location.hash = '#/portfolio/' + p.id; else ps.textContent = 'Could not save';
+      });
+      pc.addEventListener('click', function () { downloadCsv(o.title, rows); });
+    }
+  }
+
+  function csvText(rows) {
+    var head = ['CCN', 'Facility', 'City', 'State', 'Chain', 'Certified beds', 'Avg residents per day', 'Occupancy (derived)', 'Overall rating', 'Health inspection rating', 'Staffing rating', 'QM rating',
+      'Total nurse HPRD', 'RN HPRD', 'Total nursing turnover %', 'Cycle 1 health deficiencies', 'Total weighted health survey score', 'Actual harm citations (3 cycles)', 'Immediate jeopardy citations (3 cycles)',
+      'Fines', 'Fine dollars', 'Payment denials', 'Special focus status', 'Abuse icon', 'Changed ownership in last 12 months'];
+    var DQ = '"';
+    var q = function (v) { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? DQ + v.replace(/"/g, DQ + DQ) + DQ : v; };
+    var lines = [head.join(',')].concat(rows.map(function (r) {
+      var occ = pval(r, 'occ');
+      // The ="015009" form keeps Excel from stripping the CCN's leading zeros
+      return [q('="' + r[0] + '"')].concat([r[IX.name], r[IX.city], r[IX.state], r[IX.chain], r[IX.beds], r[IX.residents], occ == null ? '' : occ.toFixed(4), r[IX.overall], r[IX.health], r[IX.staffing], r[IX.qm],
+        r[IX.hprd], r[IX.rnHprd], r[IX.turnover], r[IX.c1defs], r[IX.weighted], r[IX.harm], r[IX.jeopardy], r[IX.fines], r[IX.fineTotal], r[IX.denials], r[IX.sff], r[IX.abuse] ? 'Y' : 'N', r[IX.chow] ? 'Y' : 'N'
+      ].map(q)).join(',');
+    }));
+    lines.push('', q('Source: CMS Provider Data Catalog, processing date ' + S.manifest.processing_date + '. Blank means not available. Occupancy is derived.'));
+    return '﻿' + lines.join('\r\n');
+  }
+  function downloadCsv(title, rows) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csvText(rows)], { type: 'text/csv' }));
+    a.download = (title || 'portfolio').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') + '_' + S.manifest.processing_date + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
   function route() {
     var h = location.hash.replace(/^#\/?/, '');
     if (h.indexOf('f/') === 0) renderFacility(decodeURIComponent(h.slice(2)));
     else if (h === 'status') renderStatus();
+    else if (h === 'portfolios') renderPortfolios();
+    else if (h.indexOf('portfolio/') === 0) renderSaved(decodeURIComponent(h.slice(10)));
+    else if (h.indexOf('p/') === 0) drawPortfolio({ title: 'Portfolio', ccns: Rollup.parseCcns(decodeURIComponent(h.slice(2))) });
+    else if (h.indexOf('chain/') === 0) renderChain(decodeURIComponent(h.slice(6)));
     else renderSearch();
   }
 

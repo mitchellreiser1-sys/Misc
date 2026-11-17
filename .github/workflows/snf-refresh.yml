@@ -43,7 +43,9 @@ jobs:
           python-version: "3.12"
 
       - name: Unit tests
-        run: python -m unittest discover -s tests
+        run: |
+          python -m unittest discover -s tests
+          node --test tests/rollup.test.js
 
       - name: Fetch the manifest of the currently published site
         run: |

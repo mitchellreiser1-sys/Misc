@@ -94,7 +94,7 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version):
     qm_mds, qm_claims = _group(data["qm_mds"]), _group(data["qm_claims"])
     owners, pens = _group(data["ownership"]), _group(data["penalties"])
 
-    index = []
+    index, chains = [], {}
     for p in providers:
         ccn = p[CCN]
         beds, residents = num(p["Number of Certified Beds"]), num(p["Average Number of Residents per Day"])
@@ -186,9 +186,29 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version):
                         text(x["Ownership Percentage"]), text(x["Association Date"])] for x in owners.get(ccn, [])],
         }
         _write(os.path.join(out_dir, "data", "f", f"{ccn}.json"), fac)
+        harm = sum(1 for d in defs if d[1] == "H" and d[3] in "GHI")
+        jeopardy = sum(1 for d in defs if d[1] == "H" and d[3] in "JKL")
+        # Column order is mirrored in site/app.js (IX). Append only.
         index.append([ccn, p["Provider Name"], p["City/Town"], p["State"], p["ZIP Code"],
                       p["County/Parish"], p["Chain Name"], r_overall, beds,
-                      p["Special Focus Status"], 1 if p["Abuse Icon"] == "Y" else 0])
+                      p["Special Focus Status"], 1 if p["Abuse Icon"] == "Y" else 0,
+                      r_health, r_staff, r_qm, residents,
+                      num(p["Reported Total Nurse Staffing Hours per Resident per Day"]),
+                      num(p["Reported RN Staffing Hours per Resident per Day"]),
+                      num(p["Total nursing staff turnover"]),
+                      num(p["Rating Cycle 1 Total Number of Health Deficiencies"]),
+                      num(p["Total Weighted Health Survey Score"]),
+                      num(p["Number of Fines"]), num(p["Total Amount of Fines in Dollars"]),
+                      num(p["Number of Payment Denials"]),
+                      1 if p["Provider Changed Ownership in Last 12 Months"] == "Y" else 0,
+                      p["Chain ID"], harm, jeopardy])
+        if text(p["Chain ID"]) and p["Chain ID"] not in chains:
+            chains[p["Chain ID"]] = {
+                "name": p["Chain Name"], "count": num(p["Number of Facilities in Chain"]),
+                "overall": num(p["Chain Average Overall 5-star Rating"]),
+                "health": num(p["Chain Average Health Inspection Rating"]),
+                "staffing": num(p["Chain Average Staffing Rating"]),
+                "qm": num(p["Chain Average QM Rating"])}
 
     for m in measures.values():
         m.pop("avg_col")
@@ -200,7 +220,8 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version):
     }
     _write(os.path.join(out_dir, "data", "index.json"), index)
     _write(os.path.join(out_dir, "data", "lookups.json"),
-           {"descs": descs, "measures": measures, "benchmarks": benchmarks, "footnotes": FOOTNOTES})
+           {"descs": descs, "measures": measures, "benchmarks": benchmarks, "footnotes": FOOTNOTES,
+            "chains": chains})
     with open(os.path.join(out_dir, "data", "manifest.json"), "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=1)
     return manifest

@@ -188,6 +188,42 @@ def check_penalties(providers, penalties):
                    f"Fine counts, fine dollars, and payment denials compared for {len(providers):,} facilities; {bad} do not tie.")
 
 
+CHAIN_RATINGS = [
+    ("Chain Average Overall 5-star Rating", "Overall Rating"),
+    ("Chain Average Health Inspection Rating", "Health Inspection Rating"),
+    ("Chain Average Staffing Rating", "Staffing Rating"),
+    ("Chain Average QM Rating", "QM Rating"),
+]
+
+
+def check_chain_rollups(providers):
+    """Portfolio rollups use a simple average of rated facilities. CMS publishes
+    the same figure for every chain, so the method is proven on each refresh."""
+    chains = defaultdict(list)
+    for r in providers:
+        if r["Chain ID"].strip():
+            chains[r["Chain ID"]].append(r)
+    compared, bad = 0, []
+    for cid, members in chains.items():
+        count = num(members[0]["Number of Facilities in Chain"])
+        if count is not None and count != len(members):
+            bad.append(cid)
+            continue
+        for chain_col, col in CHAIN_RATINGS:
+            published = num(members[0][chain_col])
+            values = [v for v in (num(m[col]) for m in members) if v is not None]
+            if published is None or not values:
+                continue
+            compared += 1
+            if abs(statistics.fmean(values) - published) > 0.05 + 2e-5:
+                bad.append(cid)
+    ok = compared > 0 and not bad
+    detail = (f"Facility counts and four average ratings rolled up for {len(chains):,} chains "
+              f"({compared:,} comparisons); all tie to CMS's published chain figures.") if ok else \
+        f"{len(set(bad))} chains do not tie: " + ", ".join(sorted(set(bad))[:10])
+    return _result("chains", "Portfolio rollup method ties to CMS chain averages", "gate", ok, detail)
+
+
 def check_cycle1_counts(providers, health_def):
     counts = Counter(d[CCN] for d in health_def if d["Inspection Cycle"] == "1")
     checked = diff = 0
@@ -215,6 +251,7 @@ def run_all(headers, meta, data, previous_manifest=None):
     results.append(check_star_rebuild(data["provider"]))
     results.append(check_weighted_score(data["provider"]))
     results.append(check_penalties(data["provider"], data["penalties"]))
+    results.append(check_chain_rollups(data["provider"]))
     results.append(check_cycle1_counts(data["provider"], data["health_def"]))
     return results
 

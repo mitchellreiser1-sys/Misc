@@ -88,6 +88,16 @@ class Gates(unittest.TestCase):
         avg[0]["Overall Rating"] = "3.1"
         self.assertEqual(validate.check_averages(rows, avg)[0]["status"], "fail")
 
+    def test_chain_rollup_gate(self):
+        base = {"Chain ID": "7", "Number of Facilities in Chain": "2", "Chain Average Overall 5-star Rating": "2.5",
+                "Chain Average Health Inspection Rating": "2.0", "Chain Average Staffing Rating": "4.0",
+                "Chain Average QM Rating": "4.0"}
+        rows = [provider(**base), provider(**dict(base, **{CCN: "000002", "Overall Rating": "3"}))]
+        self.assertEqual(validate.check_chain_rollups(rows)["status"], "pass")
+        rows[1]["Overall Rating"] = "5"
+        self.assertEqual(validate.check_chain_rollups(rows)["status"], "fail")
+        self.assertEqual(validate.check_chain_rollups(rows[:1])["status"], "fail")  # count does not tie
+
     def test_info_checks_never_block(self):
         self.assertTrue(validate.passed([{"status": "warn"}, {"status": "pass"}]))
         self.assertFalse(validate.passed([{"status": "fail"}]))
