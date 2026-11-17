@@ -67,6 +67,26 @@ class Extras(unittest.TestCase):
         self.assertEqual(ix["roles"], ["DIRECT", "OFFICER"])
 
 
+class SharedPortfolios(unittest.TestCase):
+    def _load(self, obj):
+        import json, os, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "portfolios.json")
+            json.dump(obj, open(p, "w"))
+            return extras.load_shared_portfolios(p)
+
+    def test_valid_file(self):
+        got = self._load([{"name": " Deal A 2026 ", "ccns": ["235357", "235357", "23539a"]}])
+        self.assertEqual(got, [{"id": "deal-a-2026", "name": "Deal A 2026", "ccns": ["235357", "23539A"]}])
+        self.assertEqual(extras.load_shared_portfolios("/nonexistent/portfolios.json"), [])
+
+    def test_malformed_file_stops_the_refresh(self):
+        for bad in ({"name": "x"}, [{"name": "", "ccns": ["235357"]}], [{"name": "x", "ccns": []}],
+                    [{"name": "x", "ccns": ["35357"]}], [{"name": "x", "ccns": ["235357"]}, {"name": "X", "ccns": ["235357"]}]):
+            with self.assertRaises(ValueError):
+                self._load(bad)
+
+
 class History(unittest.TestCase):
     def test_add_release_replaces_and_orders(self):
         h = history.empty()

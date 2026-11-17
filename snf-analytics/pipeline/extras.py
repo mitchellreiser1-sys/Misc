@@ -142,6 +142,42 @@ def owner_index(ownership_rows, ccn_position):
     return {"names": names, "types": [by_name[n][0] for n in names], "roles": roles, "links": [by_name[n][1] for n in names]}
 
 
+def load_shared_portfolios(path):
+    """Portfolios published with the site, from portfolios.json in the repo.
+
+    THE SITE IS PUBLIC: anything in that file is visible to anyone. Returns
+    [{"id", "name", "ccns"}]. Raises ValueError on a malformed file so a typo
+    stops the refresh instead of silently dropping a portfolio."""
+    import json
+    import os
+    import re
+    if not os.path.exists(path):
+        return []
+    with open(path, encoding="utf-8") as f:
+        raw = json.load(f)
+    if not isinstance(raw, list):
+        raise ValueError("portfolios.json must be a list")
+    out, seen = [], set()
+    for p in raw:
+        name = str(p.get("name", "")).strip() if isinstance(p, dict) else ""
+        ccns = p.get("ccns") if isinstance(p, dict) else None
+        if not name or not isinstance(ccns, list) or not ccns:
+            raise ValueError("Each portfolio needs a name and a list of CCNs")
+        clean = []
+        for c in ccns:
+            c = str(c).strip().upper()
+            if not re.fullmatch(r"[0-9A-Z]{6}", c):
+                raise ValueError(f"'{c}' in portfolio '{name}' is not a six-character CCN")
+            if c not in clean:
+                clean.append(c)
+        pid = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "portfolio"
+        if pid in seen:
+            raise ValueError(f"Two portfolios share the name '{name}'")
+        seen.add(pid)
+        out.append({"id": pid, "name": name, "ccns": clean})
+    return out
+
+
 VBP_REQUIRED = [CCN, "SNF VBP Program Ranking", "Performance Score", "Incentive Payment Multiplier"]
 
 

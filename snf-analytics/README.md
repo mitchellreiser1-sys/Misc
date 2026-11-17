@@ -35,6 +35,10 @@ and lists are never uploaded; the shareable link carries CCNs only.
 
 Supplementary sources (daily staffing, VBP) never block a refresh. If one is missing or fails its check, that section is left out and the Data status page says why.
 
+## Bravo portfolios (published with the site)
+
+`portfolios.json` lists portfolios that appear for everyone under "Bravo portfolios" and are tracked automatically in the change email. **The site is public, so every name and CCN in that file is visible to anyone.** A malformed entry stops the refresh. Move this to a private store when the site moves behind a login.
+
 ## Email setup
 
 Add these as repository secrets (Settings, Secrets and variables, Actions). Without them the email step does nothing.

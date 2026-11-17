@@ -453,10 +453,12 @@
     var list = loadPortfolios();
     app.innerHTML = '<div class="card"><h1>Portfolios</h1>' +
       '<p class="muted">Saved portfolios are stored only in this browser. Names and lists are not uploaded anywhere and will not appear on another device. Use "Copy link" inside a portfolio to move a list between devices; the link carries CCNs only, not the name.</p>' +
+      (S.shared.length ? '<h2>Bravo portfolios</h2><p class="muted small" style="margin-top:-8px">Published with the site, so they appear for everyone on any device.</p><div class="scroll" style="margin-bottom:22px"><table><thead><tr><th>Name</th><th class="n">Facilities</th></tr></thead><tbody>' +
+        S.shared.map(function (p) { return '<tr><td><a href="#/shared/' + esc(p.id) + '">' + esc(p.name) + '</a></td><td class="n">' + p.ccns.length + '</td></tr>'; }).join('') + '</tbody></table></div><h2>My portfolios</h2>' : '') +
       (list.length ? '<div class="scroll"><table><thead><tr><th>Name</th><th class="n">Facilities</th><th></th></tr></thead><tbody>' +
         list.map(function (p) {
           return '<tr><td><a href="#/portfolio/' + esc(p.id) + '">' + esc(p.name) + '</a></td><td class="n">' + p.ccns.length + '</td><td><button data-del="' + esc(p.id) + '">Delete</button></td></tr>';
-        }).join('') + '</tbody></table></div>' : '<p>No saved portfolios yet.</p>') + '</div>' +
+        }).join('') + '</tbody></table></div>' : '<p>No saved portfolios yet' + (S.shared.length ? ' in this browser' : '') + '.</p>') + '</div>' +
       (list.length ? '<div class="card"><h2>Email alerts</h2><p class="muted" style="margin-top:0">When CMS publishes new data, an email can list every change at the facilities you track. Because saved portfolios stay in this browser, the tracked list is stored separately as a private setting. Copy the list below and give it to whoever maintains that setting.</p>' +
         '<div class="controls" style="margin:0"><button id="copytracked">Copy tracked CCNs</button><span id="trackedmsg" class="muted small"></span></div></div>' : '') +
       '<div class="card"><h2>New portfolio</h2><div class="controls"><input id="pname" type="search" placeholder="Portfolio name" style="max-width:340px"></div>' +
@@ -521,6 +523,12 @@
     location.replace('#/portfolio/' + p.id);
   }
 
+  function renderShared(id) {
+    var p = S.shared.filter(function (x) { return x.id === id; })[0];
+    if (!p) { app.innerHTML = '<a class="back" href="#/portfolios">← All portfolios</a><div class="card"><h1>Portfolio not found</h1><p>No Bravo portfolio with that name is published.</p></div>'; return; }
+    drawPortfolio({ title: p.name, ccns: p.ccns, shared: true });
+  }
+
   function renderSaved(id) {
     var p = loadPortfolios().filter(function (x) { return x.id === id; })[0];
     if (!p) { app.innerHTML = '<a class="back" href="#/portfolios">← Portfolios</a><div class="card"><h1>Portfolio not found</h1><p>This portfolio is not saved in this browser.</p></div>'; return; }
@@ -552,10 +560,10 @@
     function avg(m, dec) { return m.avg == null ? NA : fmt(m.avg, dec); }
     function pct(n) { return s.facilities ? fmt(100 * n / s.facilities, 1) + '%' : ''; }
     var h = printHead('Portfolio report') + '<a class="back" href="#/portfolios">← All portfolios</a>' +
-      '<div class="phead"><div><h1>' + esc(o.title) + '</h1><div class="sub">' + (o.chain ? 'CMS chain · ' : o.savedId ? 'Saved portfolio · ' : 'Unsaved list · ') +
+      '<div class="phead"><div><h1>' + esc(o.title) + '</h1><div class="sub">' + (o.chain ? 'CMS chain · ' : o.shared ? 'Bravo portfolio · ' : o.savedId ? 'Saved portfolio · ' : 'Unsaved list · ') +
       s.facilities.toLocaleString() + (s.facilities === 1 ? ' facility' : ' facilities') +
       (o.chain && o.chain.count != null && o.chain.count !== s.facilities ? ' (CMS reports ' + o.chain.count + ')' : '') + ' · CMS data as of ' + fdate(S.manifest.processing_date) + '</div></div>' +
-      '<div class="controls">' + (o.savedId ? '<button id="prename">Rename</button>' : '<button id="psave" class="primary">Save as portfolio</button>') +
+      '<div class="controls">' + (o.savedId ? '<button id="prename">Rename</button>' : o.shared ? '<button id="psave">Save a personal copy</button>' : '<button id="psave" class="primary">Save as portfolio</button>') +
       '<button id="plink">Copy link</button><button id="pxlsx">Download Excel</button><button id="pcsv">CSV</button><button onclick="window.print()">Print / PDF</button></div></div>' +
       (missing.length ? '<div class="callout"><strong>' + missing.length + ' CCN' + (missing.length > 1 ? 's are' : ' is') + ' not in the current CMS release:</strong> ' + esc(missing.join(', ')) +
         '<div class="small muted" style="margin-top:4px">A CCN drops out when a facility closes, loses certification, or receives a new CCN. These are excluded from every figure below.</div></div>' : '');
@@ -1026,11 +1034,13 @@
     getChanges().then(function (ch) {
       if (!ch) { app.innerHTML = '<div class="card"><h1>What changed</h1><p>There is no earlier release on hand to compare with yet.</p></div>'; return; }
       var saved = loadPortfolios(), map = byCcn();
-      S.chScope = S.chScope || (saved.length ? 'mine' : 'all');
+      S.chScope = S.chScope || (S.shared.length ? 'bravo' : saved.length ? 'mine' : 'all');
       S.chTypes = S.chTypes || {};
       function draw() {
         var scopeSet = null;
         if (S.chScope === 'mine') { scopeSet = {}; saved.forEach(function (p) { p.ccns.forEach(function (c) { scopeSet[c] = 1; }); }); }
+        else if (S.chScope === 'bravo') { scopeSet = {}; S.shared.forEach(function (p) { p.ccns.forEach(function (c) { scopeSet[c] = 1; }); }); }
+        else if (S.chScope.indexOf('shared:') === 0) { scopeSet = {}; (S.shared.filter(function (p) { return 'shared:' + p.id === S.chScope; })[0] || { ccns: [] }).ccns.forEach(function (c) { scopeSet[c] = 1; }); }
         else if (S.chScope !== 'all') { scopeSet = {}; (saved.filter(function (p) { return p.id === S.chScope; })[0] || { ccns: [] }).ccns.forEach(function (c) { scopeSet[c] = 1; }); }
         var items = ch.items.filter(function (c) { return !scopeSet || scopeSet[c[0]]; });
         var counts = {};
@@ -1046,9 +1056,10 @@
         function tile(k, v, s) { return '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>'; }
         var h = printHead('What changed') + '<div class="phead"><div><h1>What changed</h1><div class="sub">CMS release ' + fdate(ch.to) + ' compared with ' + fdate(ch.from) + '</div></div>' +
           '<div class="controls"><select id="chscope" aria-label="Facilities to include"><option value="all">All facilities</option>' +
+          (S.shared.length ? '<option value="bravo">All Bravo portfolios</option>' + S.shared.map(function (p) { return '<option value="shared:' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') : '') +
           (saved.length ? '<option value="mine">All my portfolios</option>' : '') + saved.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') +
           '</select><button id="chxlsx">Download Excel</button><button onclick="window.print()">Print / PDF</button></div></div>' +
-          (saved.length ? '' : '<div class="callout" style="border-color:var(--line);background:var(--card)">Save a portfolio to filter this page to the facilities you track.</div>') +
+          (saved.length || S.shared.length ? '' : '<div class="callout" style="border-color:var(--line);background:var(--card)">Save a portfolio to filter this page to the facilities you track.</div>') +
           '<div class="tiles">' + tile('Overall rating upgrades', fmt(up, 0)) + tile('Overall rating downgrades', fmt(down, 0)) +
           tile('New immediate jeopardy', fmt(counts.ij || 0, 0), 'facilities') + tile('Special Focus status changes', fmt(counts.sff || 0, 0)) +
           tile('New fines', fmt(counts.fines || 0, 0), 'facilities') + tile('New payment denials', fmt(counts.denials || 0, 0), 'facilities') + '</div>' +
@@ -1255,7 +1266,7 @@
   function route() {
     var h = location.hash.replace(/^#\/?/, '');
     tip.style.display = 'none';
-    var section = h === 'status' ? 'status' : /^(portfolios|portfolio\/|p\/|chain\/)/.test(h) ? 'portfolios' : /^owner/.test(h) ? 'owners' : h === 'changes' ? 'changes' : h === 'risk' ? 'risk' : 'search';
+    var section = h === 'status' ? 'status' : /^(portfolios|portfolio\/|p\/|chain\/|shared\/|import\/)/.test(h) ? 'portfolios' : /^owner/.test(h) ? 'owners' : h === 'changes' ? 'changes' : h === 'risk' ? 'risk' : 'search';
     setPrintFooter('Bravo Capital · SNF Analytics · CMS data as of ' + fdate(S.manifest.processing_date));
     Array.prototype.forEach.call(document.querySelectorAll('.top nav a'), function (a) { a.className = a.dataset.nav === section ? 'on' : ''; });
     if (h.indexOf('f/') === 0) renderFacility(decodeURIComponent(h.slice(2)));
@@ -1264,6 +1275,7 @@
     else if (h.indexOf('portfolio/') === 0) renderSaved(decodeURIComponent(h.slice(10)));
     else if (h.indexOf('p/') === 0) drawPortfolio({ title: 'Portfolio', ccns: Rollup.parseCcns(decodeURIComponent(h.slice(2))) });
     else if (h.indexOf('import/') === 0) importPortfolio(h.slice(7));
+    else if (h.indexOf('shared/') === 0) renderShared(decodeURIComponent(h.slice(7)));
     else if (h.indexOf('chain/') === 0) renderChain(decodeURIComponent(h.slice(6)));
     else if (h === 'owners') renderOwners();
     else if (h.indexOf('owner/') === 0) renderOwner(decodeURIComponent(h.slice(6)));
@@ -1272,8 +1284,8 @@
     else renderSearch();
   }
 
-  Promise.all([getJSON('data/index.json'), getJSON('data/lookups.json'), getJSON('data/manifest.json')]).then(function (r) {
-    S.index = r[0]; S.lookups = r[1]; S.manifest = r[2];
+  Promise.all([getJSON('data/index.json'), getJSON('data/lookups.json'), getJSON('data/manifest.json'), getJSON('data/portfolios.json').catch(function () { return []; })]).then(function (r) {
+    S.index = r[0]; S.lookups = r[1]; S.manifest = r[2]; S.shared = r[3] || [];
     document.getElementById('asof').textContent = 'CMS data as of ' + fdate(S.manifest.processing_date).replace(/<[^>]+>/g, '');
     window.addEventListener('hashchange', route);
     route();

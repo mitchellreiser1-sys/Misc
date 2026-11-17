@@ -183,6 +183,12 @@ def main(argv=None):
         facilities = {r[0]: (r[1], r[2], r[3]) for r in json.load(f)}
     env = os.environ
     watchlist = parse_watchlist(env.get("WATCHLIST_CCNS", ""))
+    # Portfolios published with the site are tracked automatically
+    shared_path = os.path.join(args.site, "data", "portfolios.json")
+    if os.path.exists(shared_path):
+        with open(shared_path) as f:
+            for p in json.load(f):
+                watchlist += [c for c in p["ccns"] if c not in watchlist]
     subject, body_html, body_text = compose(changes, facilities, watchlist, args.site_url)
     if args.preview:
         with open(args.preview, "w", encoding="utf-8") as f:

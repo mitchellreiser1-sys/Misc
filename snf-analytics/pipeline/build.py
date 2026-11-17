@@ -278,6 +278,8 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version, ex
     _write(os.path.join(out_dir, "data", "owners.json"), extras.owner_index(data["ownership"], position))
     if extra.get("changes"):
         _write(os.path.join(out_dir, "data", "changes.json"), extra["changes"])
+    _write(os.path.join(out_dir, "data", "portfolios.json"),
+           extras.load_shared_portfolios(os.path.join(os.path.dirname(os.path.abspath(site_src)), "portfolios.json")))
 
     # Backtest the score over each 12-month span the release history covers
     backtest = []
