@@ -174,7 +174,7 @@ td.strong{font-weight:600}
 a.btn{display:inline-block;font-weight:500;padding:7px 13px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);white-space:nowrap}
 a.btn:hover{background:var(--hover);text-decoration:none}
 a.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-.printhead{display:none}
+.printhead,.printonly{display:none}
 .riskcard{display:grid;grid-template-columns:minmax(260px,1fr) 1.5fr;gap:28px;align-items:start}
 .rk-of{font-size:15px;font-weight:500;color:var(--muted)}
 .risk-meter{background:var(--risk-track);max-width:320px}
@@ -250,7 +250,11 @@ a.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--ac
   th{font-size:7.5pt}
   thead{display:table-header-group}
   tr{break-inside:avoid;page-break-inside:avoid}
-  .ptable table{font-size:7pt}
+  .printonly{display:block}
+  .sect.newpage{break-before:page;page-break-before:always;margin-top:0}
+  .ptable [data-np]{display:none}
+  .ptable table{font-size:7.5pt;table-layout:auto}
+  .ptable td:first-child{max-width:2.1in}
   .ptable th{font-size:6.5pt;white-space:normal}
   .ptable th,.ptable td{padding:3px 4px}
   .src{font-size:7.5pt;margin-top:8px}

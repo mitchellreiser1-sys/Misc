@@ -543,11 +543,11 @@
   }
 
   var PCOLS = [
-    ['Facility', IX.name, 's'], ['State', IX.state, 's'], ['Beds', IX.beds, 0], ['Avg residents', IX.residents, 1], ['Occupancy (derived)', 'occ', 'p'],
+    ['Facility', IX.name, 's'], ['State', IX.state, 's'], ['Beds', IX.beds, 0], ['Avg residents', IX.residents, 1, 'np'], ['Occupancy (derived)', 'occ', 'p'],
     ['Overall ★', IX.overall, '*'], ['Health ★', IX.health, '*'], ['Staffing ★', IX.staffing, '*'], ['QM ★', IX.qm, '*'],
-    ['Nurse HPRD', IX.hprd, 2], ['RN HPRD', IX.rnHprd, 2], ['Turnover %', IX.turnover, 1],
-    ['Cycle 1 defs', IX.c1defs, 0], ['Weighted score', IX.weighted, 1], ['Harm cites', IX.harm, 0], ['IJ cites', IX.jeopardy, 0],
-    ['Repeat tags', IX.repeats, 0], ['Fines', IX.fines, 0], ['Fine $', IX.fineTotal, '$'], ['Pay denials', IX.denials, 0], ['Screening score', IX.risk, 0], ['Flags', 'flags', 'f']
+    ['Nurse HPRD', IX.hprd, 2, 'np'], ['RN HPRD', IX.rnHprd, 2, 'np'], ['Turnover %', IX.turnover, 1, 'np'],
+    ['Cycle 1 defs', IX.c1defs, 0], ['Weighted score', IX.weighted, 1, 'np'], ['Harm cites', IX.harm, 0], ['IJ cites', IX.jeopardy, 0],
+    ['Repeat tags', IX.repeats, 0, 'np'], ['Fines', IX.fines, 0, 'np'], ['Fine $', IX.fineTotal, '$'], ['Pay denials', IX.denials, 0, 'np'], ['Screening score', IX.risk, 0], ['Flags', 'flags', 'f']
   ];
   function pval(r, key) { return key === 'occ' ? (r[IX.beds] && r[IX.residents] != null ? r[IX.residents] / r[IX.beds] : null) : r[key]; }
 
@@ -649,7 +649,8 @@
       stile('RN hours per resident day', s.rnHprd, 2, '', 'RN hours per resident day') +
       stile('Total nursing staff turnover', s.turnover, 1, '%', 'Total nursing staff turnover (%)') + '</div>';
 
-    h += '<div class="sect"><span>Facilities <span class="muted" style="font-weight:400">· select a column heading to sort</span></span></div><div class="card" style="padding:6px 8px"><div class="scroll ptable" id="ptable"></div></div>' +
+    h += '<div class="sect newpage"><span>Facilities <span class="muted noprint" style="font-weight:400">· select a column heading to sort</span></span></div><div class="card" style="padding:6px 8px"><div class="scroll ptable" id="ptable"></div></div>' +
+      '<p class="src printonly">The printed table shows the main columns. Average residents, staffing hours, turnover, weighted survey score, repeat tags, and fine and denial counts are on screen and in the Excel download.</p>' +
       '<p class="src">Portfolio figures are derived from published facility values. Averages are simple averages of facilities with a published value, the method CMS uses for chain averages; the pipeline confirms that method against every CMS chain at each refresh. Source: CMS Provider Information and Health Deficiencies, processing date ' + fdate(S.manifest.processing_date) + '.</p>';
     app.innerHTML = h;
 
@@ -672,9 +673,9 @@
         return (x < y ? -1 : x > y ? 1 : 0) * sort.dir;
       });
       document.getElementById('ptable').innerHTML = '<table><thead><tr>' + PCOLS.map(function (c, i) {
-        return '<th class="' + (typeof c[2] === 'number' || '*p$'.indexOf(c[2]) !== -1 ? 'n' : '') + (sort.key === c[1] ? ' sorted' : '') + '"' + (c[1] === 'flags' ? '' : ' data-i="' + i + '"') + (sort.key === c[1] ? ' aria-sort="' + (sort.dir > 0 ? 'ascending' : 'descending') + '"' : '') + '>' + c[0] + (sort.key === c[1] ? (sort.dir > 0 ? ' ↑' : ' ↓') : '') + '</th>';
+        return '<th' + (c[3] ? ' data-np' : '') + ' class="' + (typeof c[2] === 'number' || '*p$'.indexOf(c[2]) !== -1 ? 'n' : '') + (sort.key === c[1] ? ' sorted' : '') + '"' + (c[1] === 'flags' ? '' : ' data-i="' + i + '"') + (sort.key === c[1] ? ' aria-sort="' + (sort.dir > 0 ? 'ascending' : 'descending') + '"' : '') + '>' + c[0] + (sort.key === c[1] ? (sort.dir > 0 ? ' ↑' : ' ↓') : '') + '</th>';
       }).join('') + (o.savedId ? '<th></th>' : '') + '</tr></thead><tbody>' + sorted.map(function (r) {
-        return '<tr>' + PCOLS.map(function (c) { return cell(r, c); }).join('') + (o.savedId ? '<td><button data-rm="' + esc(r[0]) + '">Remove</button></td>' : '') + '</tr>';
+        return '<tr>' + PCOLS.map(function (c) { var td = cell(r, c); return c[3] ? td.replace('<td', '<td data-np') : td; }).join('') + (o.savedId ? '<td><button data-rm="' + esc(r[0]) + '">Remove</button></td>' : '') + '</tr>';
       }).join('') + '</tbody></table>';
       Array.prototype.forEach.call(document.querySelectorAll('#ptable th[data-i]'), function (th) {
         th.addEventListener('click', function () {
@@ -749,7 +750,7 @@
       document.getElementById('pxlsx').addEventListener('click', function () {
         exportXlsx(fileSafe(o.title) + '_portfolio_' + S.manifest.processing_date + '.xlsx', portfolioSheets(o.title, rows, s, missing), this);
       });
-      setPrintFooter('Bravo Capital · SNF Analytics · ' + o.title + ' · ' + s.facilities + ' facilities · CMS data as of ' + fdate(S.manifest.processing_date), true);
+      setPrintFooter('Bravo Capital · SNF Analytics · ' + o.title + ' · ' + s.facilities + ' facilities · CMS data as of ' + fdate(S.manifest.processing_date));
     }
   }
 
