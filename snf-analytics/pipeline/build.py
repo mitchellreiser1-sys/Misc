@@ -310,6 +310,8 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version, ex
         "processing_date": processing, "facility_count": len(providers),
         "datasets": meta, "checks": results,
         "has_changes": bool(extra.get("changes")),
+        # Lets the site open portfolio save and delete requests against this repository
+        "repo": os.environ.get("GITHUB_REPOSITORY"),
         "changes_from": extra["changes"]["from"] if extra.get("changes") else None,
     }
     _write(os.path.join(out_dir, "data", "index.json"), index)

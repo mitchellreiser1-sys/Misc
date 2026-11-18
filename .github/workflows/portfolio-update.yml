@@ -1,0 +1,66 @@
+name: Portfolio update
+
+# The site cannot save a shared portfolio itself, so it opens a pre-filled
+# issue. Only issues opened by the repository owner are acted on. The request
+# text is passed to the script as data and is never run as a command.
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: portfolio-update
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.event.issue.user.login == github.repository_owner && startsWith(github.event.issue.title, '[portfolio]')
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REQUEST_BODY: ${{ github.event.issue.body }}
+      ISSUE: ${{ github.event.issue.number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Apply the change to the shared portfolio list
+        id: apply
+        working-directory: snf-analytics
+        run: |
+          set +e
+          python -m tools.apply_portfolio_request portfolios.json > result.txt
+          code=$?
+          cat result.txt
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Save the list and rebuild the site
+        if: steps.apply.outputs.code == '0'
+        run: |
+          git config user.name "snf-analytics"
+          git config user.email "snf-analytics@users.noreply.github.com"
+          git add snf-analytics/portfolios.json
+          if git diff --cached --quiet; then
+            echo "No change to save."
+          else
+            git commit -m "Portfolio update from the site (issue #$ISSUE)"
+            git push origin main
+          fi
+          gh workflow run snf-refresh.yml --ref main -f force=true
+
+      - name: Reply and close
+        run: |
+          if [ "${{ steps.apply.outputs.code }}" = "0" ]; then
+            gh issue close "$ISSUE" --comment "$(cat snf-analytics/result.txt) The site is rebuilding and will show the change in about three minutes."
+          else
+            gh issue close "$ISSUE" --reason "not planned" --comment "$(cat snf-analytics/result.txt) Nothing was changed."
+          fi

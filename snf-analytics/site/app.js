@@ -55,6 +55,52 @@
       return terms.every(function (t) { return hay.indexOf(t) !== -1; });
     });
   }
+  /* ---- Saving for everyone ----
+     The site has no server, so a shared change is sent as a pre-filled request
+     to the repository. Once submitted, the site rebuilds with the change. */
+  var PENDING = 'snf.pending.v1';
+  function pslug(name) { return String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'portfolio'; }
+  function sameSet(a, b) { return a.length === b.length && a.slice().sort().join(',') === b.slice().sort().join(','); }
+  function sharedByName(name) { return (S.shared || []).filter(function (p) { return pslug(p.name) === pslug(name); })[0]; }
+  function canShare() { return !!(S.manifest && S.manifest.repo); }
+  function loadPending() {
+    try {
+      var v = JSON.parse(localStorage.getItem(PENDING) || '[]');
+      return (Array.isArray(v) ? v : []).filter(function (x) { return Date.now() - x.at < 30 * 60 * 1000; });
+    } catch (e) { return []; }
+  }
+  function savePending(list) { try { localStorage.setItem(PENDING, JSON.stringify(list)); } catch (e) { /* not essential */ } }
+  /* A request is finished once the shared list reflects it. */
+  function pendingOpen() {
+    var open = loadPending().filter(function (x) {
+      var sp = sharedByName(x.name);
+      return x.action === 'delete' ? !!sp : !(sp && sameSet(sp.ccns, x.ccns || []));
+    });
+    savePending(open);
+    return open;
+  }
+  function sendForEveryone(action, name, ccns) {
+    var body = 'action: ' + action + '\nname: ' + name + (action === 'save' ? '\nccns: ' + ccns.join(',') : '') +
+      '\n\nSubmit this request to apply it. Do not edit the lines above.';
+    var url = 'https://github.com/' + S.manifest.repo + '/issues/new?title=' + encodeURIComponent('[portfolio] ' + action + ': ' + name) + '&body=' + encodeURIComponent(body);
+    var list = loadPending().filter(function (x) { return pslug(x.name) !== pslug(name); });
+    list.push({ action: action, name: name, ccns: ccns || [], at: Date.now() });
+    savePending(list);
+    window.open(url, '_blank', 'noopener');
+  }
+  function pendingBanner() {
+    var open = pendingOpen();
+    if (!open.length) return '';
+    return '<div class="callout">' + open.map(function (x) {
+      return '<div><strong>' + (x.action === 'delete' ? 'Deleting' : 'Saving') + ' "' + esc(x.name) + '" for everyone.</strong> Select <b>Submit new issue</b> in the GitHub tab that opened. The change shows here about three minutes later; refresh this page to see it.</div>';
+    }).join('') + '</div>';
+  }
+  /* Drop this device's copy of a portfolio once the shared list holds the same thing. */
+  function tidyLocal() {
+    var list = loadPortfolios(), keep = list.filter(function (p) { var sp = sharedByName(p.name); return !(sp && sameSet(sp.ccns, p.ccns)); });
+    if (keep.length !== list.length) savePortfolios(keep);
+  }
+
   function byCcn() {
     if (!S.map) { S.map = {}; S.index.forEach(function (r) { S.map[r[0]] = r; }); }
     return S.map;
@@ -451,14 +497,17 @@
   /* ---------- Portfolios ---------- */
   function renderPortfolios() {
     var list = loadPortfolios();
+    tidyLocal();
+    list = loadPortfolios();
     var rowsHtml = S.shared.map(function (p) {
-      return '<tr><td><a href="#/shared/' + esc(p.id) + '">' + esc(p.name) + '</a></td><td class="n">' + p.ccns.length + '</td><td></td><td></td></tr>';
+      return '<tr><td><a href="#/shared/' + esc(p.id) + '">' + esc(p.name) + '</a></td><td class="n">' + p.ccns.length + '</td><td></td><td class="n">' +
+        (canShare() ? '<button data-sdel="' + esc(p.id) + '">Delete</button>' : '') + '</td></tr>';
     }).concat(list.map(function (p) {
-      return '<tr><td><a href="#/portfolio/' + esc(p.id) + '">' + esc(p.name) + '</a></td><td class="n">' + p.ccns.length + '</td><td class="muted small">On this device only</td>' +
-        '<td class="n"><button data-del="' + esc(p.id) + '">Delete</button></td></tr>';
+      return '<tr><td><a href="#/portfolio/' + esc(p.id) + '">' + esc(p.name) + '</a></td><td class="n">' + p.ccns.length + '</td><td class="muted small">' + (sharedByName(p.name) ? 'Unsaved changes on this device' : 'On this device only') + '</td>' +
+        '<td class="n">' + (canShare() && p.ccns.length ? '<button data-share="' + esc(p.id) + '" class="primary">Save for everyone</button> ' : '') + '<button data-del="' + esc(p.id) + '">' + (sharedByName(p.name) ? 'Discard changes' : 'Delete') + '</button></td></tr>';
     })).join('');
     app.innerHTML = '<div class="card"><h1>Portfolios</h1>' +
-      '<p class="muted">Everyone sees the same portfolios. Until the tool moves behind a login, a portfolio created here is saved on this device only. Once it moves, every portfolio is saved for everyone automatically.</p>' +
+      '<p class="muted">Everyone sees the same portfolios. Creating, changing, or deleting one opens a short request on GitHub; select "Submit new issue" there and the change shows for everyone about three minutes later.</p>' + pendingBanner() +
       (rowsHtml ? '<div class="scroll"><table><thead><tr><th>Name</th><th class="n">Facilities</th><th></th><th></th></tr></thead><tbody>' + rowsHtml + '</tbody></table></div>' : '<p>No portfolios yet.</p>') +
       '</div>' +
       '<div class="card"><h2>New portfolio</h2><div class="controls"><input id="pname" type="search" placeholder="Portfolio name" style="max-width:340px"></div>' +
@@ -466,6 +515,22 @@
       '<div class="controls" style="margin-top:10px"><button id="pcreate">Create portfolio</button><span id="pmsg" class="muted small"></span></div></div>' +
       '<div class="card"><h2>CMS chains</h2><p class="muted">Every chain CMS identifies is available as a ready-made portfolio.</p>' +
       '<div class="controls"><input id="cq" type="search" placeholder="Chain name"></div><div id="chains"></div></div>';
+    Array.prototype.forEach.call(app.querySelectorAll('[data-sdel]'), function (b) {
+      b.addEventListener('click', function () {
+        var p = S.shared.filter(function (x) { return x.id === b.dataset.sdel; })[0];
+        if (!p || !confirm('Delete "' + p.name + '" for everyone?')) return;
+        sendForEveryone('delete', p.name, []);
+        renderPortfolios();
+      });
+    });
+    Array.prototype.forEach.call(app.querySelectorAll('[data-share]'), function (b) {
+      b.addEventListener('click', function () {
+        var p = loadPortfolios().filter(function (x) { return x.id === b.dataset.share; })[0];
+        if (!p) return;
+        sendForEveryone('save', p.name, p.ccns);
+        renderPortfolios();
+      });
+    });
     Array.prototype.forEach.call(app.querySelectorAll('[data-del]'), function (b) {
       b.addEventListener('click', function () {
         if (!confirm('Delete this portfolio from this device?')) return;
@@ -485,8 +550,10 @@
       var name = document.getElementById('pname').value.trim(), ccns = Rollup.parseCcns(document.getElementById('pccns').value), msg = document.getElementById('pmsg');
       if (!name) { msg.textContent = 'Enter a name.'; return; }
       if (!ccns.length && document.getElementById('pccns').value.trim()) { msg.textContent = 'No valid CCNs found in the text. Clear the box to create an empty portfolio.'; return; }
+      if (sharedByName(name)) { msg.textContent = 'A portfolio with that name already exists. Open it and choose Edit.'; return; }
       var p = createPortfolio(name, ccns);
       if (!p) { msg.textContent = 'This browser would not save the portfolio. Use the link view instead.'; return; }
+      if (canShare() && ccns.length) sendForEveryone('save', name, ccns);
       location.hash = '#/portfolio/' + p.id;
     });
     var cq = document.getElementById('cq');
@@ -560,11 +627,13 @@
     function avg(m, dec) { return m.avg == null ? NA : fmt(m.avg, dec); }
     function pct(n) { return s.facilities ? fmt(100 * n / s.facilities, 1) + '%' : ''; }
     var h = printHead('Portfolio report') + '<a class="back" href="#/portfolios">← All portfolios</a>' +
-      '<div class="phead"><div><h1>' + esc(o.title) + '</h1><div class="sub">' + (o.chain ? 'CMS chain · ' : o.shared ? 'Portfolio · ' : o.savedId ? 'Portfolio on this device only · ' : 'Unsaved list · ') +
+      '<div class="phead"><div><h1>' + esc(o.title) + '</h1><div class="sub">' + (o.chain ? 'CMS chain · ' : o.shared ? 'Portfolio · ' : o.savedId ? (sharedByName(o.title) ? 'Unsaved changes on this device · ' : 'On this device only until saved for everyone · ') : 'Unsaved list · ') +
       s.facilities.toLocaleString() + (s.facilities === 1 ? ' facility' : ' facilities') +
       (o.chain && o.chain.count != null && o.chain.count !== s.facilities ? ' (CMS reports ' + o.chain.count + ')' : '') + ' · CMS data as of ' + fdate(S.manifest.processing_date) + '</div></div>' +
-      '<div class="controls">' + (o.savedId ? '<button id="prename">Rename</button>' : o.shared ? '<button id="psave">Edit a copy</button>' : '<button id="psave" class="primary">Save as portfolio</button>') +
+      '<div class="controls">' + (o.savedId ? (canShare() ? '<button id="pshare" class="primary"' + (o.ccns.length ? '' : ' disabled') + '>Save for everyone</button>' : '') + '<button id="prename">Rename</button>' :
+        o.shared ? '<button id="pedit">Edit</button>' + (canShare() ? '<button id="psdel">Delete</button>' : '') : '<button id="psave" class="primary">Save as portfolio</button>') +
       '<button id="plink">Copy link</button><button id="pxlsx">Download Excel</button><button id="pcsv">CSV</button><button onclick="window.print()">Print / PDF</button></div></div>' +
+      (o.savedId || o.shared ? pendingBanner() : '') +
       (missing.length ? '<div class="callout"><strong>' + missing.length + ' CCN' + (missing.length > 1 ? 's are' : ' is') + ' not in the current CMS release:</strong> ' + esc(missing.join(', ')) +
         '<div class="small muted" style="margin-top:4px">A CCN drops out when a facility closes, loses certification, or receives a new CCN. These are excluded from every figure below.</div></div>' : '');
     var addCard = !o.savedId ? '' : '<div class="card addcard"><h2>Add facilities</h2>' +
@@ -747,6 +816,18 @@
         if (savePortfolios(l)) location.hash = '#/portfolio/' + p.id; else ps.textContent = 'Could not save';
       });
       pc.addEventListener('click', function () { downloadCsv(o.title, rows); });
+      var psh = document.getElementById('pshare'), ped = document.getElementById('pedit'), psd = document.getElementById('psdel');
+      if (psh) psh.addEventListener('click', function () { sendForEveryone('save', o.title, o.ccns); renderSaved(o.savedId); });
+      if (ped) ped.addEventListener('click', function () {
+        // Editing works on a copy held on this device until it is saved for everyone
+        var mine = loadPortfolios().filter(function (x) { return pslug(x.name) === pslug(o.title); })[0] || createPortfolio(o.title, o.ccns.slice());
+        if (mine) location.hash = '#/portfolio/' + mine.id; else ped.textContent = 'Could not start editing';
+      });
+      if (psd) psd.addEventListener('click', function () {
+        if (!confirm('Delete "' + o.title + '" for everyone?')) return;
+        sendForEveryone('delete', o.title, []);
+        location.hash = '#/portfolios';
+      });
 
       document.getElementById('pxlsx').addEventListener('click', function () {
         exportXlsx(fileSafe(o.title) + '_portfolio_' + S.manifest.processing_date + '.xlsx', portfolioSheets(o.title, rows, s, missing), this);
