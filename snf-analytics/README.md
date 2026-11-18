@@ -47,7 +47,10 @@ Decisions already made for that version (Phase II):
 - Changes are recorded with who made them and when.
 - Roles: a Bravo employee can view everything and create and edit portfolios; an admin can also delete any portfolio; a super admin can do everything an admin can and also invite users, change roles (including making another super admin), and deactivate accounts.
 - The change email is opt-in. Each user can turn it on or off.
-- Web address: snf.bravocapital.com.
+- Web address: start on Render's default address. Moving to snf.bravocapital.com is a later step with whoever manages the Bravo domain.
+- Hosting: the same Render workspace as the client deal portal.
+- Code: a new private repository under the Bravo organization.
+- First users: two super admins named by the owner at setup.
 - The public GitHub Pages site is taken down once the private site is confirmed.
 - Phase II has not been approved to start. The owner is collecting feedback on Phase I first. **The site is public, so every name and CCN in that file is visible to anyone.** A malformed entry stops the refresh. Move this to a private store when the site moves behind a login.
 
