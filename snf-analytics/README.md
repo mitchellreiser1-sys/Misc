@@ -45,7 +45,7 @@ Decisions already made for that version (Phase II):
 - Any user can create a portfolio and edit any portfolio.
 - Only the portfolio's creator and admins can delete it.
 - Changes are recorded with who made them and when.
-- Roles: a Bravo employee can view everything and create and edit portfolios; an admin can also delete any portfolio; a super admin can do everything an admin can and also invite and manage users.
+- Roles: a Bravo employee can view everything and create and edit portfolios; an admin can also delete any portfolio; a super admin can do everything an admin can and also invite users, change roles (including making another super admin), and deactivate accounts.
 - The change email is opt-in. Each user can turn it on or off.
 - Web address: snf.bravocapital.com.
 - The public GitHub Pages site is taken down once the private site is confirmed.
