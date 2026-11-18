@@ -37,7 +37,7 @@ Supplementary sources (daily staffing, VBP) never block a refresh. If one is mis
 
 ## Portfolios (published with the site)
 
-`portfolios.json` holds the shared portfolio list that everyone sees, and those facilities are tracked automatically in the change email. A portfolio created on the site starts as a draft on that device; "Request publishing" copies a request, and publishing means adding the portfolio to this file. **The site is public, so every name and CCN in that file is visible to anyone.** A malformed entry stops the refresh. Move this to a private store when the site moves behind a login.
+`portfolios.json` holds the shared portfolio list that everyone sees, and those facilities are tracked automatically in the change email. A portfolio created on the site is saved on that device only, because the site has no server yet. When the tool moves behind a login, every portfolio is to be saved for all users automatically, with no separate publishing step. **The site is public, so every name and CCN in that file is visible to anyone.** A malformed entry stops the refresh. Move this to a private store when the site moves behind a login.
 
 ## Email setup
 

@@ -38,7 +38,7 @@
   /* Resolve the portfolio chosen in a dropdown, creating one if "New portfolio" is selected. */
   function targetPortfolio(sel) {
     if (sel.value !== '__new') return sel.value;
-    var name = prompt('Name for the new portfolio (a draft on this device until it is published)');
+    var name = prompt('Name for the new portfolio');
     if (!name || !name.trim()) return null;
     var p = createPortfolio(name.trim(), []);
     if (!p) { alert('This browser would not save the portfolio.'); return null; }
@@ -452,30 +452,23 @@
   function renderPortfolios() {
     var list = loadPortfolios();
     var rowsHtml = S.shared.map(function (p) {
-      return '<tr><td><a href="#/shared/' + esc(p.id) + '">' + esc(p.name) + '</a></td><td class="n">' + p.ccns.length + '</td><td><span class="chip good">Published</span></td><td></td></tr>';
+      return '<tr><td><a href="#/shared/' + esc(p.id) + '">' + esc(p.name) + '</a></td><td class="n">' + p.ccns.length + '</td><td></td><td></td></tr>';
     }).concat(list.map(function (p) {
-      return '<tr><td><a href="#/portfolio/' + esc(p.id) + '">' + esc(p.name) + '</a></td><td class="n">' + p.ccns.length + '</td><td><span class="chip warn">Draft on this device</span></td>' +
-        '<td class="n"><button data-pub="' + esc(p.id) + '">Request publishing</button> <button data-del="' + esc(p.id) + '">Delete</button></td></tr>';
+      return '<tr><td><a href="#/portfolio/' + esc(p.id) + '">' + esc(p.name) + '</a></td><td class="n">' + p.ccns.length + '</td><td class="muted small">On this device only</td>' +
+        '<td class="n"><button data-del="' + esc(p.id) + '">Delete</button></td></tr>';
     })).join('');
     app.innerHTML = '<div class="card"><h1>Portfolios</h1>' +
-      '<p class="muted">Portfolios are shared: everyone who opens the site sees the same published list. A new portfolio starts as a draft on the device where it was created, and appears for everyone once it is published.</p>' +
-      (rowsHtml ? '<div class="scroll"><table><thead><tr><th>Name</th><th class="n">Facilities</th><th>Status</th><th></th></tr></thead><tbody>' + rowsHtml + '</tbody></table></div>' : '<p>No portfolios yet.</p>') +
-      '<p id="pubmsg" class="small" style="margin:10px 0 0"></p></div>' +
+      '<p class="muted">Everyone sees the same portfolios. Until the tool moves behind a login, a portfolio created here is saved on this device only. Once it moves, every portfolio is saved for everyone automatically.</p>' +
+      (rowsHtml ? '<div class="scroll"><table><thead><tr><th>Name</th><th class="n">Facilities</th><th></th><th></th></tr></thead><tbody>' + rowsHtml + '</tbody></table></div>' : '<p>No portfolios yet.</p>') +
+      '</div>' +
       '<div class="card"><h2>New portfolio</h2><div class="controls"><input id="pname" type="search" placeholder="Portfolio name" style="max-width:340px"></div>' +
       '<textarea id="pccns" rows="4" placeholder="Optional. Paste CCNs separated by commas, spaces, or new lines, or leave blank and add facilities afterwards. Leading zeros dropped by Excel are restored."></textarea>' +
-      '<div class="controls" style="margin-top:10px"><button id="pcreate">Create draft</button><span id="pmsg" class="muted small"></span></div>' +
-      '<p class="src" style="margin-top:4px">A draft is saved on this device only. Use "Request publishing" to make it visible to everyone.</p></div>' +
+      '<div class="controls" style="margin-top:10px"><button id="pcreate">Create portfolio</button><span id="pmsg" class="muted small"></span></div></div>' +
       '<div class="card"><h2>CMS chains</h2><p class="muted">Every chain CMS identifies is available as a ready-made portfolio.</p>' +
       '<div class="controls"><input id="cq" type="search" placeholder="Chain name"></div><div id="chains"></div></div>';
-    Array.prototype.forEach.call(app.querySelectorAll('[data-pub]'), function (b) {
-      b.addEventListener('click', function () {
-        var p = loadPortfolios().filter(function (x) { return x.id === b.dataset.pub; })[0];
-        if (p) requestPublishing(p, document.getElementById('pubmsg'));
-      });
-    });
     Array.prototype.forEach.call(app.querySelectorAll('[data-del]'), function (b) {
       b.addEventListener('click', function () {
-        if (!confirm('Delete this draft from this device?')) return;
+        if (!confirm('Delete this portfolio from this device?')) return;
         savePortfolios(loadPortfolios().filter(function (p) { return p.id !== b.dataset.del; }));
         renderPortfolios();
       });
@@ -530,19 +523,9 @@
     location.replace('#/portfolio/' + p.id);
   }
 
-  /* Publishing puts a portfolio in the shared list everyone sees. The site has no
-     server yet, so a request is copied for the maintainer to apply. */
-  function requestPublishing(p, msgEl) {
-    if (!p.ccns.length) { msgEl.textContent = 'Add at least one facility before requesting publishing.'; return; }
-    var text = 'Please publish this SNF Analytics portfolio so everyone can see it.\nName: ' + p.name + '\nCCNs: ' + p.ccns.join(', ');
-    var done = function () { msgEl.textContent = 'Publishing request for "' + p.name + '" copied. Paste it into a message to Claude and it will be published for everyone.'; };
-    if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () { prompt('Copy this publishing request', text); });
-    else prompt('Copy this publishing request', text);
-  }
-
   function renderShared(id) {
     var p = S.shared.filter(function (x) { return x.id === id; })[0];
-    if (!p) { app.innerHTML = '<a class="back" href="#/portfolios">← All portfolios</a><div class="card"><h1>Portfolio not found</h1><p>No published portfolio has that name.</p></div>'; return; }
+    if (!p) { app.innerHTML = '<a class="back" href="#/portfolios">← All portfolios</a><div class="card"><h1>Portfolio not found</h1><p>No portfolio has that name.</p></div>'; return; }
     drawPortfolio({ title: p.name, ccns: p.ccns, shared: true });
   }
 
@@ -577,11 +560,10 @@
     function avg(m, dec) { return m.avg == null ? NA : fmt(m.avg, dec); }
     function pct(n) { return s.facilities ? fmt(100 * n / s.facilities, 1) + '%' : ''; }
     var h = printHead('Portfolio report') + '<a class="back" href="#/portfolios">← All portfolios</a>' +
-      '<div class="phead"><div><h1>' + esc(o.title) + '</h1><div class="sub">' + (o.chain ? 'CMS chain · ' : o.shared ? 'Published portfolio · ' : o.savedId ? 'Draft on this device, not yet published · ' : 'Unsaved list · ') +
+      '<div class="phead"><div><h1>' + esc(o.title) + '</h1><div class="sub">' + (o.chain ? 'CMS chain · ' : o.shared ? 'Portfolio · ' : o.savedId ? 'Portfolio on this device only · ' : 'Unsaved list · ') +
       s.facilities.toLocaleString() + (s.facilities === 1 ? ' facility' : ' facilities') +
       (o.chain && o.chain.count != null && o.chain.count !== s.facilities ? ' (CMS reports ' + o.chain.count + ')' : '') + ' · CMS data as of ' + fdate(S.manifest.processing_date) + '</div></div>' +
-      '<div class="controls">' + (o.savedId ? '<button id="ppub" class="primary">Request publishing</button><button id="prename">Rename</button>' : o.shared ? '<button id="psave">Edit a copy</button>' : '<button id="psave" class="primary">Save as draft</button>') +
-      '<span id="ppubmsg" class="small" style="flex-basis:100%;text-align:right"></span>' +
+      '<div class="controls">' + (o.savedId ? '<button id="prename">Rename</button>' : o.shared ? '<button id="psave">Edit a copy</button>' : '<button id="psave" class="primary">Save as portfolio</button>') +
       '<button id="plink">Copy link</button><button id="pxlsx">Download Excel</button><button id="pcsv">CSV</button><button onclick="window.print()">Print / PDF</button></div></div>' +
       (missing.length ? '<div class="callout"><strong>' + missing.length + ' CCN' + (missing.length > 1 ? 's are' : ' is') + ' not in the current CMS release:</strong> ' + esc(missing.join(', ')) +
         '<div class="small muted" style="margin-top:4px">A CCN drops out when a facility closes, loses certification, or receives a new CCN. These are excluded from every figure below.</div></div>' : '');
@@ -591,7 +573,7 @@
       '<div class="controls" style="margin-top:8px"><button id="addpaste">Add CCNs</button><span id="addpmsg" class="muted small"></span></div></details></div>';
     h += addCard;
     if (!rows.length) {
-      app.innerHTML = h + '<div class="card"><p>' + (o.savedId ? 'This draft is empty. Add facilities above, or from any facility report or search result.' : 'No facilities to show.') + '</p></div>';
+      app.innerHTML = h + '<div class="card"><p>' + (o.savedId ? 'This portfolio is empty. Add facilities above, or from any facility report or search result.' : 'No facilities to show.') + '</p></div>';
       wire(); wireAdd(); return;
     }
 
@@ -758,15 +740,14 @@
         else prompt('Copy this link', link);
       });
       if (ps) ps.addEventListener('click', function () {
-        var name = prompt('Portfolio name (a draft on this device until it is published)', o.title === 'Portfolio' ? '' : o.title);
+        var name = prompt('Portfolio name', o.title === 'Portfolio' ? '' : o.title);
         if (!name || !name.trim()) return;
         var l = loadPortfolios(), p = { id: newId(), name: name.trim(), ccns: o.ccns.slice() };
         l.push(p);
         if (savePortfolios(l)) location.hash = '#/portfolio/' + p.id; else ps.textContent = 'Could not save';
       });
       pc.addEventListener('click', function () { downloadCsv(o.title, rows); });
-      var pp = document.getElementById('ppub');
-      if (pp) pp.addEventListener('click', function () { requestPublishing({ name: o.title, ccns: o.ccns }, document.getElementById('ppubmsg')); });
+
       document.getElementById('pxlsx').addEventListener('click', function () {
         exportXlsx(fileSafe(o.title) + '_portfolio_' + S.manifest.processing_date + '.xlsx', portfolioSheets(o.title, rows, s, missing), this);
       });
@@ -1083,8 +1064,8 @@
         function tile(k, v, s) { return '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>'; }
         var h = printHead('What changed') + '<div class="phead"><div><h1>What changed</h1><div class="sub">CMS release ' + fdate(ch.to) + ' compared with ' + fdate(ch.from) + '</div></div>' +
           '<div class="controls"><select id="chscope" aria-label="Facilities to include"><option value="all">All facilities</option>' +
-          (S.shared.length ? '<option value="bravo">All published portfolios</option>' + S.shared.map(function (p) { return '<option value="shared:' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') : '') +
-          (saved.length ? '<option value="mine">Drafts on this device</option>' : '') + saved.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') +
+          (S.shared.length ? '<option value="bravo">All portfolios</option>' + S.shared.map(function (p) { return '<option value="shared:' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') : '') +
+          (saved.length ? '<option value="mine">Portfolios on this device only</option>' : '') + saved.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') +
           '</select><button id="chxlsx">Download Excel</button><button onclick="window.print()">Print / PDF</button></div></div>' +
           (saved.length || S.shared.length ? '' : '<div class="callout" style="border-color:var(--line);background:var(--card)">Save a portfolio to filter this page to the facilities you track.</div>') +
           '<div class="tiles">' + tile('Overall rating upgrades', fmt(up, 0)) + tile('Overall rating downgrades', fmt(down, 0)) +
