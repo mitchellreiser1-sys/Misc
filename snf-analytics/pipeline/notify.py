@@ -4,7 +4,7 @@
 
 Configuration comes from environment variables (GitHub Actions secrets):
   ALERT_TO          recipient address, or several separated by commas
-  MAIL_FROM         sender, for example  Bravo Capital <noreply@bravocapital.com>
+  MAIL_FROM         sender, for example  Bravo Capital <no-reply@bravocapital.com>
   RESEND_API_KEY    send through Resend, the service the Bravo portal uses
   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS   or send through SMTP instead
   WATCHLIST_CCNS    optional. CCNs to report on, separated by commas or spaces
@@ -144,7 +144,7 @@ def compose(changes, facilities, watchlist, site_url):
 
 def send(subject, body_html, body_text, env):
     to = [a.strip() for a in env["ALERT_TO"].split(",") if a.strip()]
-    sender = env.get("MAIL_FROM") or "Bravo Capital <noreply@bravocapital.com>"
+    sender = env.get("MAIL_FROM") or "Bravo Capital <no-reply@bravocapital.com>"
     if env.get("RESEND_API_KEY"):
         req = urllib.request.Request(
             "https://api.resend.com/emails", method="POST",

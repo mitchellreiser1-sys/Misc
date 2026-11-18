@@ -61,7 +61,7 @@ Add these as repository secrets (Settings, Secrets and variables, Actions). With
 | Secret | Value |
 |---|---|
 | `ALERT_TO` | Recipient address, or several separated by commas |
-| `MAIL_FROM` | Sender, for example `Bravo Capital <noreply@bravocapital.com>` |
+| `MAIL_FROM` | Sender, for example `Bravo Capital <no-reply@bravocapital.com>` |
 | `RESEND_API_KEY` | API key for the Resend account that sends for bravocapital.com (or use `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`) |
 | `WATCHLIST_CCNS` | Optional. CCNs to report on, separated by commas. Copy them from the Portfolios page |
 
