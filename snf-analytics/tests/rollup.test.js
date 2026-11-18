@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { summarize, parseCcns, IX, scoreAtPercentile, countAtOrAbove } = require('../site/rollup.js');
+const { summarize, parseCcns, IX, scoreAtPercentile, countAtOrAbove, countTopTier } = require('../site/rollup.js');
 
 function row(o) {
   const r = new Array(29).fill(null);
@@ -64,4 +64,9 @@ test('risk rollup and percentile threshold', () => {
   assert.strictEqual(scoreAtPercentile(table, 99), null);
   assert.strictEqual(countAtOrAbove(rows, 50), 1);
   assert.strictEqual(countAtOrAbove(rows, null), 0);
+});
+
+test('top tier counts high scores and any special focus status', () => {
+  const rows = [row({ risk: 50 }), row({ risk: 28, sff: 'SFF Candidate' }), row({ risk: 10, sff: 'SFF' }), row({ risk: 44, sff: '' }), row({ risk: null })];
+  assert.strictEqual(countTopTier(rows, 45), 3);
 });

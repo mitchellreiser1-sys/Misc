@@ -197,6 +197,14 @@ class Risk(unittest.TestCase):
         # a single recent severe citation outweighs the repeat flag
         self.assertGreater(risk.score(harm_cycles=(1, 0, 0))[1]["harm"], risk.score(repeat_severe=1)[1]["repeat"])
 
+    def test_special_focus_status_is_always_top_tier(self):
+        self.assertEqual(risk.tier(28, sff=1), "Very High Risk")
+        self.assertEqual(risk.tier(0, sff=2), "Very High Risk")
+        self.assertEqual(risk.tier(28, sff=0), "Moderate Risk")
+        self.assertTrue(risk.tier_set_by_status(28, sff=1))
+        self.assertFalse(risk.tier_set_by_status(60, sff=1))     # already top tier on points
+        self.assertFalse(risk.tier_set_by_status(28, sff=0))
+
     def test_penalties_count_less_as_they_age(self):
         pp = risk.penalty_points
         self.assertEqual([pp((0, 0, 0), d) for d in ((1, 0, 0), (0, 1, 0), (0, 0, 1), (0, 0, 0))], [6, 3, 2, 0])   # 1.5 rounds to 2

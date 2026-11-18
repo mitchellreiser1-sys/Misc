@@ -78,11 +78,16 @@
     });
     return best;
   }
+  /* Facilities in the top tier: at or above the tier's score, or any Special
+     Focus Facility or SFF candidate, which are always placed in the top tier. */
+  function countTopTier(rows, threshold) {
+    return count(rows, function (r) { return !!r[IX.sff] || (r[IX.risk] != null && r[IX.risk] >= threshold); });
+  }
   function countAtOrAbove(rows, threshold) {
     return threshold === null ? 0 : count(rows, function (r) { return r[IX.risk] != null && r[IX.risk] >= threshold; });
   }
 
-  var api = { IX: IX, summarize: summarize, parseCcns: parseCcns, mean: mean, scoreAtPercentile: scoreAtPercentile, countAtOrAbove: countAtOrAbove };
+  var api = { IX: IX, summarize: summarize, parseCcns: parseCcns, mean: mean, scoreAtPercentile: scoreAtPercentile, countAtOrAbove: countAtOrAbove, countTopTier: countTopTier };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Rollup = api;
 })(this);

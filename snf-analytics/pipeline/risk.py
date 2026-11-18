@@ -44,11 +44,22 @@ COMPONENTS = [
 TIERS = [(0, 14, "Low Risk"), (15, 29, "Moderate Risk"), (30, 44, "Elevated Risk"), (45, 100, "Very High Risk")]
 
 
-def tier(total):
+def tier(total, sff=0):
+    """Tier for a score. A Special Focus Facility or SFF candidate (sff 2 or 1)
+    is always placed in the top tier, whatever its points: that status is a
+    hard stop for some lending programs, and a rule expresses that more
+    reliably than a weight."""
+    if sff:
+        return TIERS[-1][2]
     for lo, hi, label in TIERS:
         if lo <= total <= hi:
             return label
     return TIERS[-1][2]
+
+
+def tier_set_by_status(total, sff=0):
+    """True when the tier comes from Special Focus status and not from the points."""
+    return bool(sff) and tier(total) != TIERS[-1][2]
 
 
 def _half_up(x):

@@ -79,7 +79,7 @@ def study_year(arch, pbj_dir, fa, da, fb, db):
             qm=num(p["QM Rating"]),
             chow=p["Provider Changed Ownership in Last 12 Months"] == "Y")
         had = ccn in event or history.SFF_CODES.get(l["Special Focus Status"].strip(), 0) > sff
-        rows.append((total, parts, int(had), share.get(w, 0.0) if w is not None else 0.0))
+        rows.append((total, parts, int(had), share.get(w, 0.0) if w is not None else 0.0, risk.tier(total, sff)))
     return rows
 
 
@@ -97,8 +97,9 @@ def main(arch, pbj_dir, out):
             "auc": roc_auc_score(y, [r[0] for r in rows]), "auc_cms": roc_auc_score(y, [r[3] for r in rows]),
             "top10_share": sum(r[2] for r in top) / events, "top10_rate": sum(r[2] for r in top) / len(top),
             "bottom20_rate": sum(r[2] for r in by_score[-(n // 5):]) / (n // 5),
-            "tiers": [[label, lo, hi, sum(1 for r in rows if lo <= r[0] <= hi),
-                       (sum(r[2] for r in rows if lo <= r[0] <= hi) / max(1, sum(1 for r in rows if lo <= r[0] <= hi)))] for lo, hi, label in risk.TIERS],
+            # Tiers include the rule that SFF and SFF candidates are always in the top tier
+            "tiers": [[label, lo, hi, sum(1 for r in rows if r[4] == label),
+                       (sum(r[2] for r in rows if r[4] == label) / max(1, sum(1 for r in rows if r[4] == label)))] for lo, hi, label in risk.TIERS],
             "bands": [[lo, hi, sum(1 for r in rows if lo <= r[0] <= hi),
                        (sum(r[2] for r in rows if lo <= r[0] <= hi) / max(1, sum(1 for r in rows if lo <= r[0] <= hi)))] for lo, hi in BANDS],
         })

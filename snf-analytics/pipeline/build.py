@@ -242,7 +242,8 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version, ex
                     "pos": extras.band_position(num(p["Total Weighted Health Survey Score"]), thresholds)} if thresholds else None,
             "pbj": pm,
             "vbp": vbp.get(ccn) if vbp else None,
-            "risk": {"score": rscore, "parts": rparts, "tier": risk_mod.tier(rscore),
+            "risk": {"score": rscore, "parts": rparts, "tier": risk_mod.tier(rscore, sff_code),
+                     "tier_by_status": risk_mod.tier_set_by_status(rscore, sff_code),
                      "survey_pct": round(100 * survey_share[weighted]) if weighted is not None else None},
         }
         facs.append(fac)

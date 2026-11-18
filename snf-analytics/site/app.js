@@ -270,7 +270,8 @@
     }
     var RK = f.risk, RL = S.lookups.risk;
     var parts = RL.components.filter(function (c) { return RK.parts[c[0]] > 0; });
-    var riskCard = '<div class="card riskcard"><div class="rk-score"><div class="stat"><div class="k">Regulatory screening score</div><div class="v">' + RK.score + '<span class="rk-of"> / 100</span> <span class="chip tier t' + tierIndex(RK.score) + '">' + esc(RK.tier) + '</span></div>' +
+    var riskCard = '<div class="card riskcard"><div class="rk-score"><div class="stat"><div class="k">Regulatory screening score</div><div class="v">' + RK.score + '<span class="rk-of"> / 100</span> <span class="chip tier t' + tierIndexOf(RK.tier) + '">' + esc(RK.tier) + '</span></div>' +
+      (RK.tier_by_status ? '<div class="s strong" style="color:var(--bad)">Placed in ' + esc(RK.tier) + ' because it is ' + (f.sff === 'SFF' ? 'a Special Focus Facility' : 'an SFF candidate') + '. Its points alone would place it lower.</div>' : '') +
       '<div class="meter risk-meter" role="img" aria-label="Regulatory screening score ' + RK.score + ' of 100"><i style="width:' + RK.score + '%"></i></div>' +
       '<div class="s">Higher than ' + RK.pct_us + '% of facilities nationally and ' + RK.pct_state + '% in ' + esc(f.state) + '. A Bravo screening aid for regulatory risk. Not a CMS figure and not a credit risk measure. <a href="#/risk">How it works</a></div></div></div>' +
       '<div class="rk-parts">' + (parts.length ? '<table><thead><tr><th>What contributes</th><th class="n">Points</th></tr></thead><tbody>' + parts.map(function (c) {
@@ -634,6 +635,10 @@
         o.shared ? '<button id="pedit">Edit</button>' + (canShare() ? '<button id="psdel">Delete</button>' : '') : '<button id="psave" class="primary">Save as portfolio</button>') +
       '<button id="plink">Copy link</button><button id="pxlsx">Download Excel</button><button id="pcsv">CSV</button><button onclick="window.print()">Print / PDF</button></div></div>' +
       (o.savedId || o.shared ? pendingBanner() : '') +
+      (s.sff + s.sffCandidates > 0 ? '<div class="callout sffnote"><strong>This portfolio includes ' +
+        [s.sff ? s.sff + (s.sff === 1 ? ' Special Focus Facility' : ' Special Focus Facilities') : '', s.sffCandidates ? s.sffCandidates + (s.sffCandidates === 1 ? ' SFF candidate' : ' SFF candidates') : ''].filter(Boolean).join(' and ') +
+        '.</strong> ' + rows.filter(function (r) { return r[IX.sff]; }).slice(0, 12).map(function (r) { return '<a href="#/f/' + esc(r[0]) + '">' + esc(r[1]) + '</a> (' + esc(r[IX.sff]) + ')'; }).join(', ') +
+        (s.sff + s.sffCandidates > 12 ? ', and ' + (s.sff + s.sffCandidates - 12) + ' more' : '') + '</div>' : '') +
       (missing.length ? '<div class="callout"><strong>' + missing.length + ' CCN' + (missing.length > 1 ? 's are' : ' is') + ' not in the current CMS release:</strong> ' + esc(missing.join(', ')) +
         '<div class="small muted" style="margin-top:4px">A CCN drops out when a facility closes, loses certification, or receives a new CCN. These are excluded from every figure below.</div></div>' : '');
     var addCard = !o.savedId ? '' : '<div class="card addcard"><h2>Add facilities</h2>' +
@@ -698,9 +703,9 @@
       risk('Changed ownership in the last 12 months', s.chow, pct(s.chow) + ' of facilities', s.chow / n) +
       '</div><div>' +
       (function () {
-        var RL = S.lookups.risk, top = RL.tiers[RL.tiers.length - 1], hi = Rollup.countAtOrAbove(rows, top[0]);
+        var RL = S.lookups.risk, top = RL.tiers[RL.tiers.length - 1], hi = Rollup.countTopTier(rows, top[0]);
         return risk('Average regulatory screening score', s.risk.avg == null ? NA : fmt(s.risk.avg, 0),
-          hi + (hi === 1 ? ' facility scores ' : ' facilities score ') + top[0] + ' or higher (' + esc(top[2].toLowerCase()) + ') · not a CMS figure · <a href="#/risk">How it works</a>', hi / n);
+          hi + (hi === 1 ? ' facility is ' : ' facilities are ') + esc(top[2]) + ' (score of ' + top[0] + ' or higher, or SFF or SFF candidate) · not a CMS figure · <a href="#/risk">How it works</a>', hi / n);
       })() +
       risk('Immediate jeopardy citations', s.jeopardy, 'Scope and severity J to L, last 3 inspection cycles · at ' + fac(s.facilitiesWithJeopardy) + ' (' + pct(s.facilitiesWithJeopardy) + ')', s.facilitiesWithJeopardy / n) +
       risk('Actual harm citations', s.harm, 'Scope and severity G to I, last 3 inspection cycles') +
@@ -1076,6 +1081,11 @@
       '<text x="' + L + '" y="' + (H - 6) + '" class="hc-tick">' + monthLabel(dates[0]) + '</text><text x="' + (W - R) + '" y="' + (H - 6) + '" class="hc-tick" text-anchor="end">' + monthLabel(dates[n - 1]) + '</text>' + hits + '</svg></div>';
   }
 
+  function tierIndexOf(label) {
+    var T = S.lookups.risk.tiers;
+    for (var i = 0; i < T.length; i++) if (T[i][2] === label) return i;
+    return T.length - 1;
+  }
   function tierIndex(score) {
     var T = S.lookups.risk.tiers;
     for (var i = 0; i < T.length; i++) if (score >= T[i][0] && score <= T[i][1]) return i;
@@ -1283,10 +1293,10 @@
         (V.prior_versions || []).map(function (pv) { return '<div class="tile"><div class="k">Earlier rules (' + esc(pv.name) + ')</div><div class="v">' + pc(pv.pooled_auc, 0) + '</div><div class="s">The same test on an earlier set of scoring rules.</div></div>'; }).join('') +
         '</div></div>';
 
-      h += '<div class="card"><h2>Risk tiers</h2><p class="muted" style="margin-top:0">Tiers describe regulatory risk relative to other facilities. They say how closely to look, not whether a facility is acceptable. Even in the Very High Risk tier, most facilities had no serious event in the following year.</p><div class="scroll"><table><thead><tr><th>Tier</th><th>Score</th>' +
+      h += '<div class="card"><h2>Risk tiers</h2><p class="muted" style="margin-top:0">Tiers describe regulatory risk relative to other facilities. They say how closely to look, not whether a facility is acceptable. Even in the Very High Risk tier, most facilities had no serious event in the following year.</p><p style="margin-top:0"><b>Special Focus rule:</b> a Special Focus Facility or SFF candidate is always placed in the top tier, whatever its points. Its score still shows the points it earned.</p><div class="scroll"><table><thead><tr><th>Tier</th><th>Score</th>' +
         V.years.map(function (y) { return '<th class="n">Scored ' + fdate(y.as_of) + '</th>'; }).join('') + '</tr></thead><tbody>' +
         V.years[0].tiers.map(function (t, i) {
-          return '<tr><td><span class="chip tier t' + i + '">' + esc(t[0]) + '</span></td><td>' + t[1] + (t[2] >= 100 ? ' and up' : ' to ' + t[2]) + '</td>' + V.years.map(function (y) { return '<td class="n"><span class="strong">' + pc(y.tiers[i][4]) + '</span> <span class="muted small">of ' + y.tiers[i][3].toLocaleString() + '</span></td>'; }).join('') + '</tr>';
+          return '<tr><td><span class="chip tier t' + i + '">' + esc(t[0]) + '</span></td><td>' + t[1] + (t[2] >= 100 ? ' and up, or any SFF or SFF candidate' : ' to ' + t[2]) + '</td>' + V.years.map(function (y) { return '<td class="n"><span class="strong">' + pc(y.tiers[i][4]) + '</span> <span class="muted small">of ' + y.tiers[i][3].toLocaleString() + '</span></td>'; }).join('') + '</tr>';
         }).join('') + '</tbody></table></div><p class="src">Each cell is the share of facilities in that tier that had a serious event in the following 12 months, and the number of facilities in the tier.</p></div>';
       h += '<div class="card"><h2>Share of facilities with a serious event in the next 12 months, by score</h2><div class="scroll"><table><thead><tr><th>Score</th>' +
         V.years.map(function (y) { return '<th class="n">Scored ' + fdate(y.as_of) + '</th>'; }).join('') + '</tr></thead><tbody>' +
