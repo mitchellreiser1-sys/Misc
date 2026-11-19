@@ -7,7 +7,8 @@
   // Column positions in data/index.json. Mirrors pipeline/build.py. Append only.
   var IX = { ccn: 0, name: 1, city: 2, state: 3, zip: 4, county: 5, chain: 6, overall: 7, beds: 8, sff: 9, abuse: 10,
     health: 11, staffing: 12, qm: 13, residents: 14, hprd: 15, rnHprd: 16, turnover: 17, c1defs: 18, weighted: 19,
-    fines: 20, fineTotal: 21, denials: 22, chow: 23, chainId: 24, harm: 25, jeopardy: 26, risk: 27, repeats: 28 };
+    fines: 20, fineTotal: 21, denials: 22, chow: 23, chainId: 24, harm: 25, jeopardy: 26, risk: 27, repeats: 28,
+    legal: 29, lat: 30, lon: 31 };
 
   function mean(values) {
     var v = values.filter(function (x) { return x != null; });

@@ -4,12 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SNF Analytics</title>
+<script>
+/* Apply a saved light or dark choice before the page paints */
+try { var t = localStorage.getItem('snf.theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+</script>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="#/">SNF Analytics</a>
-  <nav><a href="#/" data-nav="search">Search</a><a href="#/portfolios" data-nav="portfolios">Portfolios</a><a href="#/owners" data-nav="owners">Owners</a><a href="#/changes" data-nav="changes">What changed</a><a href="#/risk" data-nav="risk">Screening score</a><a href="#/status" data-nav="status">Data status</a></nav>
+  <a class="brand" href="#/" aria-label="Bravo Capital SNF Analytics, home">
+    <span class="wordmark"><span class="wm-bravo">BRAVO</span><span class="wm-capital">Capital</span></span>
+    <span class="brand-sub">SNF Analytics</span>
+  </a>
+  <nav><a href="#/" data-nav="search">Home</a><a href="#/portfolios" data-nav="portfolios">Portfolios</a><a href="#/owners" data-nav="owners">Owners</a><a href="#/changes" data-nav="changes">What changed</a><a href="#/risk" data-nav="risk">Screening score</a><a href="#/status" data-nav="status">Data status</a></nav>
+  <span class="spacer"></span>
+  <span class="gsearch"><input id="gq" type="search" placeholder="Find a facility" aria-label="Find a facility" autocomplete="off"><div id="gdrop" class="gdrop" hidden></div></span>
+  <button id="themebtn" class="iconbtn" title="Switch between light and dark" aria-label="Switch between light and dark">◐</button>
   <span id="asof" class="asof"></span>
 </header>
 <main id="app"><p class="muted">Loading CMS data…</p></main>

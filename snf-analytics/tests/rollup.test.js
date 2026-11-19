@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const { summarize, parseCcns, IX, scoreAtPercentile, countAtOrAbove, countTopTier, tierOf, tierCounts } = require('../site/rollup.js');
 
 function row(o) {
-  const r = new Array(29).fill(null);
+  const r = new Array(32).fill(null);
   Object.keys(o).forEach(k => { r[IX[k]] = o[k]; });
   return r;
 }

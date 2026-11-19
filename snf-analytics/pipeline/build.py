@@ -260,7 +260,10 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version, ex
                       num(p["Number of Fines"]), num(p["Total Amount of Fines in Dollars"]),
                       num(p["Number of Payment Denials"]),
                       1 if p["Provider Changed Ownership in Last 12 Months"] == "Y" else 0,
-                      p["Chain ID"], harm, jeopardy, rscore, len(repeats)])
+                      p["Chain ID"], harm, jeopardy, rscore, len(repeats),
+                      # legal name only where it differs, to tell apart names CMS cuts off at 50 characters
+                      (p["Legal Business Name"].strip() if p["Legal Business Name"].strip().upper() != p["Provider Name"].strip().upper() else ""),
+                      num(p["Latitude"]), num(p["Longitude"])])
         if text(p["Chain ID"]) and p["Chain ID"] not in chains:
             chains[p["Chain ID"]] = {
                 "name": p["Chain Name"], "count": num(p["Number of Facilities in Chain"]),
