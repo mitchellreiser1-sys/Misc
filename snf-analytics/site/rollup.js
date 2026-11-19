@@ -83,11 +83,26 @@
   function countTopTier(rows, threshold) {
     return count(rows, function (r) { return !!r[IX.sff] || (r[IX.risk] != null && r[IX.risk] >= threshold); });
   }
+  /* Index of a facility's tier in the tier list [[low, high, label], ...].
+     A Special Focus Facility or SFF candidate is always in the top tier. */
+  function tierOf(row, tiers) {
+    if (row[IX.sff]) return tiers.length - 1;
+    var s = row[IX.risk];
+    if (s == null) return null;
+    for (var i = 0; i < tiers.length; i++) if (s >= tiers[i][0] && s <= tiers[i][1]) return i;
+    return tiers.length - 1;
+  }
+  /* Number of facilities in each tier, in tier order. */
+  function tierCounts(rows, tiers) {
+    var out = tiers.map(function () { return 0; });
+    rows.forEach(function (row) { var t = tierOf(row, tiers); if (t != null) out[t]++; });
+    return out;
+  }
   function countAtOrAbove(rows, threshold) {
     return threshold === null ? 0 : count(rows, function (r) { return r[IX.risk] != null && r[IX.risk] >= threshold; });
   }
 
-  var api = { IX: IX, summarize: summarize, parseCcns: parseCcns, mean: mean, scoreAtPercentile: scoreAtPercentile, countAtOrAbove: countAtOrAbove, countTopTier: countTopTier };
+  var api = { IX: IX, summarize: summarize, parseCcns: parseCcns, mean: mean, scoreAtPercentile: scoreAtPercentile, countAtOrAbove: countAtOrAbove, countTopTier: countTopTier, tierOf: tierOf, tierCounts: tierCounts };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Rollup = api;
 })(this);

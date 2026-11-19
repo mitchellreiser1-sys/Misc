@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { summarize, parseCcns, IX, scoreAtPercentile, countAtOrAbove, countTopTier } = require('../site/rollup.js');
+const { summarize, parseCcns, IX, scoreAtPercentile, countAtOrAbove, countTopTier, tierOf, tierCounts } = require('../site/rollup.js');
 
 function row(o) {
   const r = new Array(29).fill(null);
@@ -69,4 +69,14 @@ test('risk rollup and percentile threshold', () => {
 test('top tier counts high scores and any special focus status', () => {
   const rows = [row({ risk: 50 }), row({ risk: 28, sff: 'SFF Candidate' }), row({ risk: 10, sff: 'SFF' }), row({ risk: 44, sff: '' }), row({ risk: null })];
   assert.strictEqual(countTopTier(rows, 45), 3);
+});
+
+test('tier counts follow score ranges and the special focus rule', () => {
+  const tiers = [[0, 14, 'Low Risk'], [15, 29, 'Moderate Risk'], [30, 44, 'Elevated Risk'], [45, 100, 'Very High Risk']];
+  const rows = [row({ risk: 0 }), row({ risk: 14 }), row({ risk: 15 }), row({ risk: 44 }), row({ risk: 45 }),
+    row({ risk: 28, sff: 'SFF Candidate' }), row({ risk: 5, sff: 'SFF' }), row({ risk: null })];
+  assert.deepStrictEqual(tierCounts(rows, tiers), [2, 1, 1, 3]);
+  assert.strictEqual(tierOf(row({ risk: 28, sff: 'SFF Candidate' }), tiers), 3);
+  assert.strictEqual(tierOf(row({ risk: null }), tiers), null);
+  assert.strictEqual(tierCounts(rows, tiers).reduce((a, b) => a + b, 0), 7);   // the unscored facility is not counted
 });

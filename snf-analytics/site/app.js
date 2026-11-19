@@ -652,6 +652,19 @@
       wire(); wireAdd(); return;
     }
 
+    /* Tier line: how many facilities sit in each tier, worst first */
+    var TL = S.lookups.risk.tiers, tc = Rollup.tierCounts(rows, TL), topN = tc[TL.length - 1];
+    var topRows = rows.filter(function (r) { return Rollup.tierOf(r, TL) === TL.length - 1; }).sort(function (a, b) { return (b[IX.risk] || 0) - (a[IX.risk] || 0); });
+    h += '<div class="card tierline' + (topN ? ' hot' : '') + '"><div class="tl-head">' +
+      '<span class="tl-main"><b>' + topN + ' of ' + s.facilities + '</b> ' + (s.facilities === 1 ? 'facility is ' : 'facilities are ') + esc(TL[TL.length - 1][2]) + '</span>' +
+      '<span class="tl-chips">' + TL.map(function (t, i) { return [t, i]; }).reverse().map(function (x) {
+        return '<span class="chip tier t' + x[1] + '">' + esc(x[0][2]) + ' <b>' + tc[x[1]] + '</b></span>';
+      }).join('') + '</span></div>' +
+      (topN ? '<div class="tl-names">' + topRows.slice(0, 15).map(function (r) {
+        return '<a href="#/f/' + esc(r[0]) + '">' + esc(r[1]) + '</a> <span class="muted">(' + esc(r[IX.city]) + ', ' + (r[IX.sff] ? esc(r[IX.sff]) + ', ' : '') + 'score ' + fmt(r[IX.risk], 0) + ')</span>';
+      }).join(' · ') + (topN > 15 ? ' · and ' + (topN - 15) + ' more' : '') + '</div>' : '') +
+      '<div class="src" style="margin-top:8px">Tiers come from each facility\'s regulatory screening score. Any SFF or SFF candidate is always ' + esc(TL[TL.length - 1][2]) + '. <a href="#/risk">How it works</a></div></div>';
+
     /* Overview */
     h += '<div class="card strip">' +
       '<div class="stat"><div class="k">Facilities</div><div class="v">' + fmt(s.facilities, 0) + '</div></div>' +
@@ -737,6 +750,10 @@
       if (t === '*') return '<td class="n">' + (v == null ? '<span class="na" title="Not rated">NR</span>' : '<i class="sw s' + v + '" aria-hidden="true"></i>' + v) + '</td>';
       if (t === 'p') return '<td class="n">' + (v == null ? NA : fmt(v * 100, 1) + '%') + '</td>';
       if (t === '$') return '<td class="n">' + money(v) + '</td>';
+      if (c[1] === IX.risk) {
+        var ti = Rollup.tierOf(r, S.lookups.risk.tiers);
+        return '<td class="n" title="' + (ti == null ? '' : esc(S.lookups.risk.tiers[ti][2])) + '">' + (ti == null ? '' : '<i class="sw tsw t' + ti + '" aria-hidden="true"></i>') + fmt(v, 0) + '</td>';
+      }
       return '<td class="n">' + fmt(v, t) + '</td>';
     }
     function drawTable() {
@@ -1016,7 +1033,9 @@
       ['Average total nurse hours per resident day (' + s.hprd.n + ' reporting)', r4(s.hprd.avg)], ['Average RN hours per resident day (' + s.rnHprd.n + ' reporting)', r4(s.rnHprd.avg)],
       ['Average total nursing staff turnover % (' + s.turnover.n + ' reporting)', r4(s.turnover.avg)],
       ['Average regulatory screening score (not a CMS figure)', r4(s.risk.avg)]
-    ];
+    ].concat(S.lookups.risk.tiers.map(function (t, i) { return [i, t]; }).reverse().map(function (x) {
+      return ['Facilities in the ' + x[1][2] + ' tier', Rollup.tierCounts(rows, S.lookups.risk.tiers)[x[0]]];
+    }));
     if (missing.length) summary.push(['CCNs not in the current CMS release (excluded)', missing.join(', ')]);
     var D = s.distribution;
     return [
@@ -1031,11 +1050,11 @@
           { header: 'Total nurse HPRD', width: 9, fmt: '0.00' }, { header: 'RN HPRD', width: 8, fmt: '0.00' }, { header: 'Nursing turnover %', width: 9, fmt: '0.0' },
           { header: 'Cycle 1 health deficiencies', width: 10, fmt: '0' }, { header: 'Weighted health survey score', width: 10, fmt: '0.0' }, { header: 'Actual harm citations', width: 9, fmt: '0' }, { header: 'Immediate jeopardy citations', width: 9, fmt: '0' }, { header: 'Repeat citation tags', width: 9, fmt: '0' },
           { header: 'Fines', width: 7, fmt: '0' }, { header: 'Fine dollars', width: 12, fmt: '$#,##0' }, { header: 'Payment denials', width: 8, fmt: '0' },
-          { header: 'Regulatory screening score', width: 10, fmt: '0' }, { header: 'Special focus status', width: 14 }, { header: 'Abuse icon', width: 7 }, { header: 'Changed ownership, 12 months', width: 10 }],
+          { header: 'Regulatory screening score', width: 10, fmt: '0' }, { header: 'Risk tier', width: 15 }, { header: 'Special focus status', width: 14 }, { header: 'Abuse icon', width: 7 }, { header: 'Changed ownership, 12 months', width: 10 }],
         rows: rows.map(function (r) {
           var occ = r[IX.beds] && r[IX.residents] != null ? r[IX.residents] / r[IX.beds] : null;
           return [r[0], r[IX.name], r[IX.city], r[IX.state], r[IX.chain], r[IX.beds], r[IX.residents], occ, r[IX.overall], r[IX.health], r[IX.staffing], r[IX.qm], r[IX.hprd], r[IX.rnHprd], r[IX.turnover],
-            r[IX.c1defs], r[IX.weighted], r[IX.harm], r[IX.jeopardy], r[IX.repeats], r[IX.fines], r[IX.fineTotal], r[IX.denials], r[IX.risk], r[IX.sff] || '', r[IX.abuse] ? 'Y' : 'N', r[IX.chow] ? 'Y' : 'N'];
+            r[IX.c1defs], r[IX.weighted], r[IX.harm], r[IX.jeopardy], r[IX.repeats], r[IX.fines], r[IX.fineTotal], r[IX.denials], r[IX.risk], (function (ti) { return ti == null ? '' : S.lookups.risk.tiers[ti][2]; })(Rollup.tierOf(r, S.lookups.risk.tiers)), r[IX.sff] || '', r[IX.abuse] ? 'Y' : 'N', r[IX.chow] ? 'Y' : 'N'];
         }) }
     ];
   }

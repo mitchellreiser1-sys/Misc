@@ -201,6 +201,16 @@ a.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--ac
 .dir.good{color:var(--good)}.dir.bad{color:var(--bad)}
 .narr{white-space:pre-wrap;font:13.5px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0;color:var(--ink)}
 .chip.tiny.warn{color:var(--warn)}
+.tierline{padding:16px 20px}
+.tierline.hot{border-color:var(--badline)}
+.tl-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.tl-main{font-size:17px}
+.tl-main b{font-weight:680}
+.tierline.hot .tl-main b{color:var(--bad)}
+.tl-chips{display:flex;gap:6px;flex-wrap:wrap}
+.tl-names{margin-top:10px;font-size:13.5px;line-height:1.7}
+.sw.tsw{border-radius:50%}
+.sw.tsw.t0{background:var(--good)}.sw.tsw.t1{background:var(--muted)}.sw.tsw.t2{background:var(--star)}.sw.tsw.t3{background:var(--risk)}
 .callout.sffnote{border-color:var(--badline);background:var(--badbg)}
 .callout.sffnote strong{color:var(--bad)}
 .chip.tier{font-size:12.5px;font-weight:600;vertical-align:middle;letter-spacing:0}
