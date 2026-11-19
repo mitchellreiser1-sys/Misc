@@ -177,6 +177,8 @@ a.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--ac
 .printhead,.printonly{display:none}
 .riskcard{display:grid;grid-template-columns:minmax(260px,1fr) 1.5fr;gap:28px;align-items:start}
 .rk-of{font-size:15px;font-weight:500;color:var(--muted)}
+.rk-rank{font-size:14px;color:var(--ink2);margin-top:4px}
+.rk-rank b{color:var(--ink);font-weight:650}
 .risk-meter{background:var(--risk-track);max-width:320px}
 .risk-meter>i{background:var(--risk)}
 .rk-parts table td{padding:7px 8px}
