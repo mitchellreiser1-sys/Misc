@@ -480,11 +480,72 @@
   }
 
   /* ---------- Data status ---------- */
+  function when(iso) {
+    var d = new Date(iso);
+    return isNaN(d) ? String(iso) : d.toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+  function ago(iso) {
+    var mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (isNaN(mins)) return '';
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + (mins === 1 ? ' minute ago' : ' minutes ago');
+    var hrs = Math.round(mins / 60);
+    if (hrs < 48) return hrs + (hrs === 1 ? ' hour ago' : ' hours ago');
+    return Math.round(hrs / 24) + ' days ago';
+  }
+  /* Refresh activity comes straight from the repository's public run history,
+     so it is current even when a check found nothing new and did not rebuild. */
+  function loadRuns() {
+    var m = S.manifest, box = document.getElementById('runs'), lc = document.getElementById('lastcheck'), lcs = document.getElementById('lastcheck-s');
+    if (!m.repo) { box.innerHTML = '<p class="muted">Run history is not available in this build.</p>'; lc.textContent = 'Not available'; return; }
+    fetch('https://api.github.com/repos/' + m.repo + '/actions/workflows/snf-refresh.yml/runs?per_page=15', { headers: { Accept: 'application/vnd.github+json' } })
+      .then(function (r) { if (!r.ok) throw new Error('GitHub returned ' + r.status); return r.json(); })
+      .then(function (data) {
+        if (!document.getElementById('runs')) return;
+        var runs = data.workflow_runs || [], built = new Date(m.built_at).getTime();
+        var label = function (r) {
+          if (r.event === 'schedule') return 'Automatic check';
+          if (r.event === 'push') return 'Site update';
+          if (r.event === 'workflow_dispatch') return r.triggering_actor && /\[bot\]$/.test(r.triggering_actor.login) ? 'Portfolio change' : 'Manual run';
+          return r.event;
+        };
+        var outcome = function (r) {
+          if (r.status !== 'completed') return ['In progress', 'warn'];
+          if (r.conclusion !== 'success') return ['Failed; the site kept its last good version', 'fail'];
+          var a = new Date(r.run_started_at).getTime(), b = new Date(r.updated_at).getTime();
+          if (built >= a && built <= b + 90000) return ['Succeeded; site rebuilt', 'pass'];
+          return (b - a < 45000) ? ['Succeeded; no new CMS release, nothing to update', 'pass'] : ['Succeeded; site rebuilt', 'pass'];
+        };
+        var done = runs.filter(function (r) { return r.status === 'completed'; })[0];
+        if (done) {
+          lc.textContent = when(done.run_started_at);
+          lcs.textContent = ago(done.run_started_at) + ' · ' + label(done) + ' · ' + outcome(done)[0];
+        } else { lc.textContent = 'No runs yet'; }
+        var lastAuto = runs.filter(function (r) { return r.event === 'schedule' && r.status === 'completed'; })[0];
+        box.innerHTML = (lastAuto ? '<p style="margin-top:0">Last automatic check: <strong>' + esc(when(lastAuto.run_started_at)) + '</strong> <span class="muted">(' + esc(ago(lastAuto.run_started_at)) + ')</span></p>' : '<p style="margin-top:0" class="muted">No automatic check appears in the most recent runs.</p>') +
+          '<div class="scroll"><table><thead><tr><th>Started</th><th>How long ago</th><th>Type</th><th>Result</th></tr></thead><tbody>' +
+          runs.map(function (r) {
+            var o = outcome(r);
+            return '<tr><td>' + esc(when(r.run_started_at)) + '</td><td class="muted">' + esc(ago(r.run_started_at)) + '</td><td>' + esc(label(r)) + '</td><td class="status-' + o[1] + '">' + esc(o[0]) + '</td></tr>';
+          }).join('') + '</tbody></table></div>';
+      })
+      .catch(function (e) {
+        if (!document.getElementById('runs')) return;
+        lc.textContent = 'Not available right now';
+        box.innerHTML = '<p class="muted">The run history could not be loaded (' + esc(e.message) + '). GitHub limits how often it can be read; try again in a few minutes.</p>';
+      });
+  }
+
   function renderStatus() {
     var m = S.manifest, ds = m.datasets;
     app.innerHTML = '<div class="card"><h1>Data status</h1>' +
-      '<p>CMS release processing date: <strong>' + fdate(m.processing_date) + '</strong> · ' + m.facility_count.toLocaleString() + ' facilities · Last built ' + esc(m.built_at.replace('T', ' ').replace('Z', ' UTC')) + ' · Pipeline version ' + esc(m.pipeline_version) + '</p>' +
-      '<p class="muted">The pipeline checks CMS daily. A new release is published here only if every gate below passes. If a gate fails, this site keeps showing the last release that passed.</p></div>' +
+      '<div class="tiles" style="margin:14px 0 6px">' +
+      '<div class="tile"><div class="k">Last checked CMS for new data</div><div class="v" id="lastcheck" style="font-size:18px">Loading…</div><div class="s" id="lastcheck-s"></div></div>' +
+      '<div class="tile"><div class="k">Site last rebuilt</div><div class="v" style="font-size:18px">' + esc(when(m.built_at)) + '</div><div class="s">' + esc(ago(m.built_at)) + '</div></div>' +
+      '<div class="tile"><div class="k">CMS release on display</div><div class="v" style="font-size:18px">' + fdate(m.processing_date) + '</div><div class="s">' + m.facility_count.toLocaleString() + ' facilities' + (m.datasets.provider && m.datasets.provider.next_update ? ' · CMS lists its next update as ' + fdate(m.datasets.provider.next_update) : '') + '</div></div></div>' +
+      '<p class="muted">The pipeline checks CMS twice a day. A new release is published here only if every gate below passes. If a gate fails, this site keeps showing the last release that passed. Pipeline version ' + esc(m.pipeline_version) + '.</p></div>' +
+      '<div class="card"><h2>Recent refresh activity</h2><div id="runs"><p class="muted">Loading…</p></div>' +
+      '<p class="src">Times are shown in your local time. Automatic checks are scheduled twice a day; GitHub often starts them several hours late. A check that finds no new CMS release finishes without rebuilding the site.</p></div>' +
       '<div class="card"><h2>Reconciliation checks for this release</h2><div class="scroll"><table><thead><tr><th>Check</th><th>Type</th><th>Result</th><th>Detail</th></tr></thead><tbody>' +
       m.checks.map(function (c) {
         return '<tr><td>' + esc(c.name) + '</td><td>' + (c.level === 'gate' ? 'Gate' : 'Informational') + '</td><td class="status-' + c.status + '">' + (c.status === 'pass' ? 'Pass' : c.status === 'warn' ? 'Note' : 'Fail') + '</td><td>' + esc(c.detail) + '</td></tr>';
@@ -494,6 +555,7 @@
         var d = ds[k];
         return '<tr><td>' + esc(d.title) + '</td><td class="small">' + esc(d.file) + '</td><td class="n">' + fmt(d.rows, 0) + '</td><td>' + fdate(d.modified) + '</td><td>' + fdate(d.released) + '</td><td>' + fdate(d.next_update) + '</td><td class="small" title="' + esc(d.sha256) + '">' + esc((d.sha256 || '').slice(0, 12)) + '…</td></tr>';
       }).join('') + '</tbody></table></div></div>';
+    loadRuns();
   }
 
   /* ---------- Portfolios ---------- */
