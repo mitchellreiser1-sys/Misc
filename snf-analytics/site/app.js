@@ -271,10 +271,10 @@
     var RK = f.risk, RL = S.lookups.risk;
     var parts = RL.components.filter(function (c) { return RK.parts[c[0]] > 0; });
     var riskCard = '<div class="card riskcard"><div class="rk-score"><div class="stat"><div class="k">Regulatory screening score</div><div class="v">' + RK.score + '<span class="rk-of"> / 100</span> <span class="chip tier t' + tierIndexOf(RK.tier) + '">' + esc(RK.tier) + '</span></div>' +
-      '<div class="rk-rank">Worse than <b>' + RK.pct_us + '%</b> of facilities nationally</div>' +
+      '<div class="rk-rank">Worse than <b>' + (RK.pct_us >= 100 ? 'over 99' : RK.pct_us) + '%</b> of facilities nationally</div>' +
       (RK.tier_by_status ? '<div class="s strong" style="color:var(--bad)">Placed in ' + esc(RK.tier) + ' because it is ' + (f.sff === 'SFF' ? 'a Special Focus Facility' : 'an SFF candidate') + '. Its points alone would place it lower.</div>' : '') +
       '<div class="meter risk-meter" role="img" aria-label="Regulatory screening score ' + RK.score + ' of 100"><i style="width:' + RK.score + '%"></i></div>' +
-      '<div class="s">Worse than ' + RK.pct_state + '% of facilities in ' + esc(f.state) + '. A Bravo screening aid for regulatory risk. Not a CMS figure and not a credit risk measure. <a href="#/risk">How it works</a></div></div></div>' +
+      '<div class="s">Worse than ' + (RK.pct_state >= 100 ? 'over 99' : RK.pct_state) + '% of facilities in ' + esc(f.state) + '. A Bravo screening aid for regulatory risk. Not a CMS figure and not a credit risk measure. <a href="#/risk">How it works</a></div></div></div>' +
       '<div class="rk-parts">' + (parts.length ? '<table><thead><tr><th>What contributes</th><th class="n">Points</th></tr></thead><tbody>' + parts.map(function (c) {
         return '<tr><td>' + esc(c[1]) + ' <span class="muted small">(of ' + c[3] + ')</span><div class="muted small">' + esc(c[2]) + (c[0] === 'survey' && RK.survey_pct != null ? '. This facility\'s score is worse than ' + RK.survey_pct + '% of facilities.' : '') + '</div></td><td class="n strong">' + RK.parts[c[0]] + '</td></tr>';
       }).join('') + '</tbody></table>' : '<p class="muted" style="margin:0">No component of the score applies to this facility.</p>') +
