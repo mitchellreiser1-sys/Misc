@@ -278,6 +278,8 @@ button.chip.tier{cursor:pointer;padding:3px 11px}
 button.chip.tier:hover{filter:brightness(.96)}
 button.chip.tier[aria-pressed="true"]{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--accent)}
 .pmap{display:none;height:440px;margin-top:12px;border-radius:10px;border:1px solid var(--line);position:relative;z-index:0}
+.pmap.tallmap{height:560px}
+.sw.tsw.subj{background:var(--card);border:3px solid #0e2643;width:11px;height:11px}
 .leaflet-popup-content{color:#142438;font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
 .leaflet-popup-content a{color:#16406f;font-weight:600}
 table.cmp th,table.cmp td{vertical-align:middle}

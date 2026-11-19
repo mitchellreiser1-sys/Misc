@@ -1077,28 +1077,9 @@
       btn.addEventListener('click', function () {
         var box = document.getElementById('pmap');
         btn.disabled = true; btn.textContent = 'Loading map…';
-        if (!document.getElementById('leafcss')) {
-          var l = document.createElement('link'); l.id = 'leafcss'; l.rel = 'stylesheet'; l.href = 'vendor/leaflet.css'; document.head.appendChild(l);
-        }
-        loadScript('vendor/leaflet.js').then(function () {
-          var pts = rows.filter(function (r) { return r[IX.lat] != null && r[IX.lon] != null; });
-          if (!pts.length) { box.innerHTML = '<p class="muted">CMS publishes no coordinates for these facilities.</p>'; btn.remove(); return; }
-          box.style.display = 'block';
-          var css = getComputedStyle(document.documentElement), TT = S.lookups.risk.tiers;
-          var colors = ['--good', '--muted', '--star', '--risk'].map(function (v) { return css.getPropertyValue(v).trim(); });
-          var map = L.map(box, { scrollWheelZoom: false });
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
-          var latlngs = pts.map(function (r) {
-            var ti = Rollup.tierOf(r, TT), ll = [r[IX.lat], r[IX.lon]];
-            L.circleMarker(ll, { radius: 8, color: '#ffffff', weight: 2, fillColor: colors[ti == null ? 1 : ti], fillOpacity: 0.95 }).addTo(map)
-              .bindPopup('<b>' + esc(r[IX.name]) + '</b><br>' + esc(legalIf(r) || '') + (legalIf(r) ? '<br>' : '') + esc(r[IX.city]) + ', ' + esc(r[IX.state]) + '<br>' +
-                (ti == null ? '' : esc(TT[ti][2]) + ' · score ' + fmt(r[IX.risk], 0) + '<br>') + 'Overall ' + (r[IX.overall] == null ? 'not rated' : r[IX.overall] + ' of 5 stars') +
-                '<br><a href="#/f/' + esc(r[0]) + '">Open report</a>');
-            return ll;
-          });
-          if (latlngs.length === 1) map.setView(latlngs[0], 10); else map.fitBounds(latlngs, { padding: [30, 30] });
+        showMap(box, rows).then(function (n) {
           btn.remove();
-          document.getElementById('maplegend').hidden = false;
+          if (n) document.getElementById('maplegend').hidden = false;
         }).catch(function () { btn.disabled = false; btn.textContent = 'Show map'; box.innerHTML = '<p class="muted">The map could not be loaded.</p>'; box.style.display = 'block'; });
       });
     }
@@ -1481,6 +1462,57 @@
     });
   }
 
+  /* ---------- Shared: map of facilities. The map library and imagery load only when asked for. ---------- */
+  var liveMaps = {};
+  function showMap(box, rows, opts) {
+    opts = opts || {};
+    if (!document.getElementById('leafcss')) {
+      var l = document.createElement('link'); l.id = 'leafcss'; l.rel = 'stylesheet'; l.href = 'vendor/leaflet.css'; document.head.appendChild(l);
+    }
+    return loadScript('vendor/leaflet.js').then(function () {
+      var pts = rows.filter(function (r) { return r[IX.lat] != null && r[IX.lon] != null; });
+      if (liveMaps[box.id]) { try { liveMaps[box.id].remove(); } catch (e) { /* its page is already gone */ } delete liveMaps[box.id]; }
+      if (!pts.length) { box.style.display = 'block'; box.style.height = 'auto'; box.innerHTML = '<p class="muted" style="padding:12px;margin:0">CMS publishes no coordinates for these facilities.</p>'; return 0; }
+      box.innerHTML = ''; box.style.height = ''; box.style.display = 'block';
+      var css = getComputedStyle(document.documentElement), TT = S.lookups.risk.tiers;
+      var colors = ['--good', '--muted', '--star', '--risk'].map(function (v) { return css.getPropertyValue(v).trim(); });
+      var many = pts.length > 400;
+      var map = liveMaps[box.id] = L.map(box, { scrollWheelZoom: false, preferCanvas: true });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+      var popup = function (r) {
+        var ti = Rollup.tierOf(r, TT);
+        return '<b>' + esc(r[IX.name]) + '</b><br>' + (legalIf(r) ? esc(legalIf(r)) + '<br>' : '') + esc(r[IX.city]) + ', ' + esc(r[IX.state]) + '<br>' +
+          (ti == null ? '' : esc(TT[ti][2]) + ' · score ' + fmt(r[IX.risk], 0) + '<br>') + 'Overall ' + (r[IX.overall] == null ? 'not rated' : r[IX.overall] + ' of 5 stars') + ' · ' + fmt(r[IX.beds], 0) + ' beds' +
+          '<br><a href="#/f/' + esc(r[0]) + '">Open report</a>';
+      };
+      var latlngs = [];
+      /* draw the highest tiers last so they sit on top */
+      pts.slice().sort(function (a, b) { return (Rollup.tierOf(a, TT) || 0) - (Rollup.tierOf(b, TT) || 0); }).forEach(function (r) {
+        var ti = Rollup.tierOf(r, TT), ll = [r[IX.lat], r[IX.lon]], subject = opts.subject === r[0];
+        if (subject) return;
+        L.circleMarker(ll, { radius: pts.length > 3000 ? 2.5 : many ? 4 : 8, color: '#ffffff', weight: pts.length > 3000 ? 0 : many ? 0.6 : 2, fillColor: colors[ti == null ? 1 : ti], fillOpacity: 0.95 }).addTo(map).bindPopup(function () { return popup(r); });
+        latlngs.push(ll);
+      });
+      pts.forEach(function (r) {
+        if (opts.subject !== r[0]) return;
+        var ll = [r[IX.lat], r[IX.lon]];
+        L.circleMarker(ll, { radius: 12, color: '#0e2643', weight: 3, fillColor: colors[Rollup.tierOf(r, TT) == null ? 1 : Rollup.tierOf(r, TT)], fillOpacity: 1 }).addTo(map).bindPopup(function () { return '<i>This facility</i><br>' + popup(r); });
+        latlngs.push(ll);
+      });
+      if (latlngs.length === 1) map.setView(latlngs[0], 10);
+      else if (many) {
+        /* frame the bulk of the points so a few far-off facilities (Alaska, Hawaii, Guam) do not zoom the map out to the whole world */
+        var las = latlngs.map(function (p) { return p[0]; }).sort(function (a, b) { return a - b; }), los = latlngs.map(function (p) { return p[1]; }).sort(function (a, b) { return a - b; });
+        var lo = Math.floor(las.length * 0.01), hi = Math.ceil(las.length * 0.99) - 1;
+        map.fitBounds([[las[lo], los[lo]], [las[hi], los[hi]]], { padding: [20, 20] });
+      } else map.fitBounds(latlngs, { padding: [30, 30] });
+      return pts.length;
+    });
+  }
+  function mapLegend(subject) {
+    return '<span class="legend">' + S.lookups.risk.tiers.map(function (t, i) { return '<span><i class="sw tsw t' + i + '"></i>' + esc(t[2]) + '</span>'; }).join('') + (subject ? '<span><i class="sw tsw subj"></i>This facility</span>' : '') + '</span>';
+  }
+
   /* ---------- Nearby facilities (facility report) ---------- */
   function milesBetween(a, b) {
     var rad = Math.PI / 180, dLat = (b[0] - a[0]) * rad, dLon = (b[1] - a[1]) * rad;
@@ -1519,10 +1551,14 @@
         var r = p.r, st = function (v) { return v == null ? '<span class="na">NR</span>' : '<i class="sw s' + v + '"></i>' + v; }, o = pval(r, 'occ');
         return '<tr><td>' + nameCell(r) + '</td><td class="n">' + (p.d == null ? NA : fmt(p.d, 1)) + '</td><td class="n">' + fmt(r[IX.beds], 0) + '</td><td class="n">' + (o == null ? NA : fmt(o * 100, 1) + '%') + '</td><td class="n">' + st(r[IX.overall]) + '</td><td class="n">' + st(r[IX.health]) + '</td><td class="n">' + st(r[IX.staffing]) + '</td><td class="n">' + st(r[IX.qm]) + '</td><td class="n">' + fmt(r[IX.risk], 0) + '</td></tr>';
       }).join('') + '</tbody></table></div></details>' +
+      '<div class="noprint" style="margin-top:14px"><div class="controls" style="margin:0"><button id="peermapbtn">' + (S.peerMap ? 'Hide map' : 'Show map') + '</button>' + mapLegend(true) + '</div><div id="peermap" class="pmap"></div></div>' +
       '<p class="src">Distance is a straight line between the coordinates CMS publishes, not driving distance. Rank 1 is the best of this facility and the nearby facilities that report the measure. The median covers the nearby facilities only. This is not a market study.</p>';
     el.innerHTML = h;
     labelCells(el);
     wirePeers(ccn);
+    var mb = document.getElementById('peermapbtn'), drawMap = function () { showMap(document.getElementById('peermap'), [me].concat(peers.map(function (p) { return p.r; })), { subject: ccn }); };
+    mb.addEventListener('click', function () { S.peerMap = !S.peerMap; drawPeers(ccn); });
+    if (S.peerMap) drawMap();
   }
   function wirePeers(ccn) {
     Array.prototype.forEach.call(document.querySelectorAll('#peers [data-peer]'), function (b) {
@@ -1657,8 +1693,10 @@
       '<label class="fld">Sort by<select id="s_sort">' + [['risk', 'Screening score, lowest first'], ['riskd', 'Screening score, highest first'], ['beds', 'Beds, largest first'], ['overall', 'Overall rating, highest first'], ['name', 'Name']].map(function (o) { return '<option value="' + o[0] + '"' + (F.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label></div>' +
       '<div class="controls" style="margin:14px 0 0"><span class="small strong">Tiers:</span>' + T.map(function (t, i) { return '<label class="cb"><input type="checkbox" data-tierbox="' + i + '"' + (F.tiers[i] ? ' checked' : '') + '> ' + esc(t[2]) + '</label>'; }).join('') +
       '<span style="width:12px"></span><label class="cb"><input type="checkbox" id="s_noSff"' + (F.noSff ? ' checked' : '') + '> Exclude SFF and candidates</label><label class="cb"><input type="checkbox" id="s_noAbuse"' + (F.noAbuse ? ' checked' : '') + '> Exclude abuse icon</label>' +
-      '<span style="flex:1"></span><button id="s_reset">Reset</button></div></div><div id="scout"></div>';
-    var matches = [];
+      '<span style="flex:1"></span><button id="s_reset">Reset</button></div></div><div id="sctiles"></div>' +
+      '<div class="card noprint"><div class="controls" style="margin:0"><button id="scmapbtn">' + (S.screenMap ? 'Hide map' : 'Show map') + '</button>' + mapLegend() + '<span id="scmapn" class="muted small"></span></div><div id="scmap" class="pmap tallmap"></div>' +
+      '<p class="src">The map shows every facility that matches the filters above and updates as you change them. Select a dot for details. Higher tiers are drawn on top, so zoom in or filter by state before judging how common a tier is. Map imagery is loaded from OpenStreetMap when you select Show map.</p></div><div id="scout"></div>';
+    var matches = [], mapTimer = null;
     function draw() {
       var n = function (v) { return v === '' || v == null || isNaN(+v) ? null : +v; };
       var bMin = n(F.bedsMin), bMax = n(F.bedsMax), star = n(F.star), occ = n(F.occ);
@@ -1673,11 +1711,13 @@
       var s = Rollup.summarize(matches), SHOW = 200;
       document.getElementById('scopen').disabled = !matches.length || matches.length > 300;
       document.getElementById('scopen').title = matches.length > 300 ? 'Narrow the list to 300 facilities or fewer to open it as a portfolio.' : '';
-      document.getElementById('scout').innerHTML = '<div class="tiles">' +
+      document.getElementById('sctiles').innerHTML = '<div class="tiles">' +
         '<div class="tile"><div class="k">Facilities matching</div><div class="v">' + matches.length.toLocaleString() + '</div><div class="s">of ' + S.index.length.toLocaleString() + '</div></div>' +
         '<div class="tile"><div class="k">Certified beds</div><div class="v">' + fmt(s.beds, 0) + '</div></div>' +
         '<div class="tile"><div class="k">Average overall rating</div><div class="v">' + (s.ratings.overall.avg == null ? NA : fmt(s.ratings.overall.avg, 2)) + '</div></div>' +
-        '<div class="tile"><div class="k">Average screening score</div><div class="v">' + (s.risk.avg == null ? NA : fmt(s.risk.avg, 0)) + '</div></div></div>' +
+        '<div class="tile"><div class="k">Average screening score</div><div class="v">' + (s.risk.avg == null ? NA : fmt(s.risk.avg, 0)) + '</div></div></div>';
+      if (S.screenMap) { clearTimeout(mapTimer); mapTimer = setTimeout(function () { showMap(document.getElementById('scmap'), matches).then(function (n) { document.getElementById('scmapn').textContent = n.toLocaleString() + ' plotted'; }); }, 250); }
+      document.getElementById('scout').innerHTML =
         (matches.length ? '<div class="card" style="padding:6px 8px"><div class="scroll tall"><table class="cards"><thead><tr><th style="min-width:240px">Facility</th><th>State</th><th class="n">Beds</th><th class="n">Occupancy</th><th class="n">Overall ★</th><th class="n">Health ★</th><th class="n">Staffing ★</th><th class="n">QM ★</th><th class="n">Screening score</th><th>Tier</th><th>Chain</th></tr></thead><tbody>' +
           matches.slice(0, SHOW).map(function (r) {
             var st = function (v) { return v == null ? '<span class="na">NR</span>' : '<i class="sw s' + v + '"></i>' + v; }, o = pval(r, 'occ'), ti = Rollup.tierOf(r, T);
@@ -1694,6 +1734,7 @@
     ['noSff', 'noAbuse'].forEach(function (k) { var el = document.getElementById('s_' + k); el.addEventListener('change', function () { F[k] = el.checked; draw(); }); });
     Array.prototype.forEach.call(app.querySelectorAll('[data-tierbox]'), function (el) { el.addEventListener('change', function () { F.tiers[+el.dataset.tierbox] = el.checked; draw(); }); });
     document.getElementById('s_reset').addEventListener('click', function () { S.screen = null; renderScreen(); });
+    document.getElementById('scmapbtn').addEventListener('click', function () { S.screenMap = !S.screenMap; renderScreen(); });
     document.getElementById('scopen').addEventListener('click', function () { location.hash = '#/p/' + matches.map(function (r) { return r[0]; }).join(','); });
     draw();
     window.scrollTo(0, 0);
