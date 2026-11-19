@@ -361,7 +361,7 @@
     h += '<div class="sect" id="sec-deficiencies"><span>Deficiencies cited <span class="muted" style="font-weight:400">· ' + D.length + ' in the three most recent inspection cycles</span></span></div>' +
       '<div class="bands">' + bands + '</div>' +
       (f.repeat && f.repeat.length ? '<div class="callout"><strong>' + f.repeat.length + (f.repeat.length === 1 ? ' repeat citation' : ' repeat citations') + ':</strong> ' + esc(f.repeat.join(', ')) + '<div class="small muted" style="margin-top:4px">Health deficiency tags cited in more than one of the last three inspection cycles.</div></div>' : '') +
-      '<div class="card"><div class="controls"><label class="cb"><input type="checkbox" id="fH" checked> Health</label><label class="cb"><input type="checkbox" id="fF" checked> Fire safety</label>' +
+      '<div class="card"><div class="controls"><label class="cb"><input type="checkbox" id="fH" checked> Health</label><label class="cb"><input type="checkbox" id="fF"> Fire safety</label>' +
       '<label class="cb"><input type="checkbox" id="fG"> Actual harm or immediate jeopardy only</label>' +
       '<label class="cb"><input type="checkbox" id="fR"> Repeat citations only</label>' +
       '<select id="fC" aria-label="Inspection cycle"><option value="">All cycles</option>' + Object.keys(cycles).sort().map(function (c) { return '<option value="' + esc(c) + '">Cycle ' + esc(c) + '</option>'; }).join('') + '</select>' +
