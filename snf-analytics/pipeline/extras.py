@@ -121,11 +121,18 @@ def pbj_metrics(a):
     }
 
 
+def _iso_date(text):
+    """'since 02/14/2000' -> '2000-02-14'; anything else -> ''."""
+    import re
+    m = re.search(r"(\d{2})/(\d{2})/(\d{4})", text or "")
+    return "%s-%s-%s" % (m.group(3), m.group(1), m.group(2)) if m else ""
+
+
 def owner_index(ownership_rows, ccn_position):
     """Index of owner and manager names across all facilities.
 
     Names are matched exactly as CMS publishes them. Returns
-    {"names": [...], "types": [...], "roles": [...], "links": [[ [facility index, role index, percent], ...], ...]}"""
+    {"names": [...], "types": [...], "roles": [...], "links": [[ [facility index, role index, percent, association date], ...], ...]}"""
     roles, role_ix = [], {}
     by_name = {}
     for r in ownership_rows:
@@ -137,7 +144,8 @@ def owner_index(ownership_rows, ccn_position):
             role_ix[role] = len(roles)
             roles.append(role)
         entry = by_name.setdefault(name, [r["Owner Type"][:1], []])
-        entry[1].append([ccn_position[r[CCN]], role_ix[role], "" if r["Ownership Percentage"] == "NOT APPLICABLE" else r["Ownership Percentage"]])
+        entry[1].append([ccn_position[r[CCN]], role_ix[role], "" if r["Ownership Percentage"] == "NOT APPLICABLE" else r["Ownership Percentage"],
+                         _iso_date(r.get("Association Date", ""))])
     names = sorted(by_name)
     return {"names": names, "types": [by_name[n][0] for n in names], "roles": roles, "links": [by_name[n][1] for n in names]}
 

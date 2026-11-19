@@ -327,7 +327,8 @@ def build(data, meta, results, site_src, out_dir, built_at, pipeline_version, ex
                      "us_percentiles": us_pct, "validation": _risk_validation(site_src)},
             "pbj": {"quarter": extra.get("pbj_quarter"), "period": extra.get("pbj_period")} if pbj else None,
             "vbp_fy": extra.get("vbp_fy"),
-            "history_releases": len(history_mod.dates(hist)) if hist else 0})
+            "history_releases": len(history_mod.dates(hist)) if hist else 0,
+            "history_first": history_mod.dates(hist)[0] if hist and history_mod.dates(hist) else None})
     with open(os.path.join(out_dir, "data", "manifest.json"), "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=1)
     return manifest

@@ -410,7 +410,7 @@
       '<div id="sincelast" class="sincelast noprint"></div>';
 
     /* section navigation */
-    var SECTIONS = [['risk', 'Risk'], ['ratings', 'Ratings'], ['inspections', 'Inspections'], ['deficiencies', 'Deficiencies'], ['staffing', 'Staffing'], ['quality', 'Quality measures'], ['penalties', 'Penalties'], ['ownership', 'Ownership'], ['narrative', 'Narrative draft']];
+    var SECTIONS = [['risk', 'Risk'], ['ratings', 'Ratings'], ['inspections', 'Inspections'], ['deficiencies', 'Deficiencies'], ['staffing', 'Staffing'], ['quality', 'Quality measures'], ['penalties', 'Penalties'], ['peers', 'Nearby'], ['ownership', 'Ownership'], ['narrative', 'Narrative draft']];
     h += '<div class="secnav" role="navigation" aria-label="Report sections">' + SECTIONS.map(function (x) { return '<button data-go="sec-' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
 
     /* overview */
@@ -589,18 +589,22 @@
       src('Penalties, Provider Information, and State US Averages') + '</div>';
 
     /* ownership */
+    h += '<div class="sect" id="sec-peers"><span>Nearby facilities <span class="muted" style="font-weight:400">· how this facility compares with those around it</span></span></div><div class="card" id="peers"></div>';
     h += '<div class="sect" id="sec-ownership"><span>Ownership and management <span class="muted" style="font-weight:400">· ' + f.owners.length + ' reported</span></span></div><div class="card">' +
       (f.owners.length ? '<div class="scroll tall"><table><thead><tr><th>Name</th><th>Role</th><th>Type</th><th class="n">Ownership</th><th>Associated since</th></tr></thead><tbody>' +
         f.owners.map(function (o) {
           return '<tr><td class="strong">' + (o[2] ? '<a href="#/owner/' + encodeURIComponent(o[2]) + '">' + esc(o[2]) + '</a>' : NA) + '</td><td>' + esc(o[0]) + '</td><td>' + esc(o[1] || '') + '</td><td class="n">' + esc(o[3] || '') + '</td><td>' + esc((o[4] || '').replace(/^since\s+/i, '')) + '</td></tr>';
         }).join('') + '</tbody></table></div>' : '<p style="margin:0">' + NA + '</p>') + src('Ownership') + '</div>';
 
+    h += notesCard('f:' + f.ccn);
     h += '<div class="sect noprint" id="sec-narrative"><span>Lender narrative draft <span class="muted" style="font-weight:400">· Subject\'s State Surveys section</span></span></div><div class="card noprint">' +
       '<p class="muted small" style="margin-top:0">Filled only from the CMS figures on this page, in the wording of approved Bravo narratives. The POC column shows the correction date CMS publishes for each survey, using the latest date when a survey has more than one, as in approved Bravo narratives. Surveys listed are those with health deficiencies, plus any annual survey with none. Anything CMS does not publish is marked [TBD]. Review against the state survey documents before use.</p>' +
       '<pre id="narr" class="narr"></pre><div class="controls" style="margin:10px 0 0"><button id="narrcopy">Copy text</button><span id="narrmsg" class="muted small"></span></div></div>';
     app.innerHTML = h;
     setPrintFooter('Bravo Capital · SNF Analytics · ' + f.name + ' (CCN ' + f.ccn + ') · CMS data as of ' + fdate(S.manifest.processing_date));
     sinceLast(f.ccn, document.getElementById('sincelast'));
+    drawPeers(f.ccn);
+    wireNotes();
     document.getElementById('narr').textContent = narrativeDraft(f);
     document.getElementById('narrcopy').addEventListener('click', function () {
       var t = document.getElementById('narr').textContent, msg = document.getElementById('narrmsg');
@@ -970,6 +974,9 @@
       '<span id="maplegend" class="legend" hidden>' + S.lookups.risk.tiers.map(function (t, i) { return '<span><i class="sw tsw t' + i + '"></i>' + esc(t[2]) + '</span>'; }).join('') + '</span></div>' +
       '<div id="pmap" class="pmap"></div><p class="src">Locations are the coordinates CMS publishes. Map imagery is loaded from OpenStreetMap when you select Show map.</p></div>' +
       '<p class="src printonly">The printed table shows the main columns. Average residents, staffing hours, turnover, weighted survey score, repeat tags, and fine and denial counts are on screen and in the Excel download.</p>' +
+      '<div class="sect"><span>Trend <span class="muted" style="font-weight:400">· the facilities in this portfolio today, since ' + monthLabel((S.lookups.history_first || '2023-10-01')) + '</span></span></div><div class="card" id="pdetail"></div>' +
+      '<div class="sect noprint"><span>Lender narrative table <span class="muted" style="font-weight:400">· portfolio star ratings and compliance</span></span></div><div class="card noprint" id="plnbox"><p class="muted" style="margin:0">Loads with the trend above.</p></div>' +
+      (o.savedId || o.shared ? notesCard('p:' + pslug(o.title)) : '') +
       '<p class="src">Portfolio figures are derived from published facility values. Averages are simple averages of facilities with a published value, the method CMS uses for chain averages; the pipeline confirms that method against every CMS chain at each refresh. Source: CMS Provider Information and Health Deficiencies, processing date ' + fdate(S.manifest.processing_date) + '.</p>';
     app.innerHTML = h;
 
@@ -1057,6 +1064,8 @@
     });
     drawTable();
     wireMap();
+    wirePortfolioDetail(rows);
+    wireNotes();
     wire();
     wireAdd();
     if (!o.keepScroll) window.scrollTo(0, 0);
@@ -1408,6 +1417,288 @@
     [term('Payment denials', 'denial'), function (f) { return fmt(f.penalties.denials, 0); }]
   ];
 
+  /* ---------- Shared: loading several facility files, simple statistics, trend chart ---------- */
+  var fcache = {};
+  function loadFacilities(ccns) {
+    return Promise.all(ccns.map(function (c) {
+      if (!fcache[c]) fcache[c] = getJSON('data/f/' + encodeURIComponent(c) + '.json').catch(function () { return null; });
+      return fcache[c];
+    })).then(function (list) { return list.filter(Boolean); });
+  }
+  function median(vals) {
+    var v = vals.filter(function (x) { return x != null; }).sort(function (a, b) { return a - b; });
+    if (!v.length) return null;
+    return v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
+  }
+  function trendChart(label, dates, values, dec, suffix) {
+    var W = 280, H = 118, L = 30, R = 10, T = 8, B = 22, n = dates.length, have = values.filter(function (v) { return v != null; });
+    var lo = have.length ? Math.min.apply(null, have) : 0, hi = have.length ? Math.max.apply(null, have) : 1;
+    if (hi === lo) { hi = lo + 1; lo = Math.max(0, lo - 1); }
+    var pad = (hi - lo) * 0.12; lo = Math.max(0, lo - pad); hi = hi + pad;
+    var t0 = Date.parse(dates[0]), t1 = Date.parse(dates[n - 1]) || t0 + 1;
+    var x = function (i) { return L + (W - L - R) * (n > 1 ? (Date.parse(dates[i]) - t0) / (t1 - t0) : 0.5); };
+    var y = function (v) { return T + (H - T - B) * (hi - v) / (hi - lo); };
+    var show = function (v) { return v == null ? 'not available' : Number(v).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + (suffix || ''); };
+    var grid = [lo, (lo + hi) / 2, hi].map(function (v) {
+      return '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(v).toFixed(1) + '" y2="' + y(v).toFixed(1) + '" class="hc-grid"/><text x="' + (L - 5) + '" y="' + (y(v) + 3).toFixed(1) + '" class="hc-tick" text-anchor="end">' + Number(v).toLocaleString('en-US', { maximumFractionDigits: dec }) + '</text>';
+    }).join('');
+    var path = '', pen = false, last = -1;
+    values.forEach(function (v, i) {
+      if (v == null) { pen = false; return; }
+      path += (pen ? ' L' : ' M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1); pen = true; last = i;
+    });
+    var hits = values.map(function (v, i) {
+      var left = i === 0 ? L : (x(i - 1) + x(i)) / 2, right = i === n - 1 ? W - R : (x(i) + x(i + 1)) / 2;
+      return '<rect x="' + left.toFixed(1) + '" y="' + T + '" width="' + Math.max(1, right - left).toFixed(1) + '" height="' + (H - T - B) + '" class="hc-hit" tabindex="-1" data-tip="' + esc(label + ', ' + monthLabel(dates[i]) + ': ' + show(v)) + '"/>';
+    }).join('');
+    return '<div class="card hcard"><div class="hc-head"><span>' + esc(label) + '</span><b>' + (last >= 0 ? show(values[last]) : 'Not available') + '</b></div>' +
+      '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(label + ' from ' + monthLabel(dates[0]) + ' to ' + monthLabel(dates[n - 1]) + (have.length ? ': first ' + show(have[0]) + ', latest ' + show(have[have.length - 1]) : '')) + '">' +
+      grid + '<path d="' + path + '" class="hc-line"/>' + (last >= 0 ? '<circle cx="' + x(last).toFixed(1) + '" cy="' + y(values[last]).toFixed(1) + '" r="4" class="hc-dot"/>' : '') +
+      '<text x="' + L + '" y="' + (H - 6) + '" class="hc-tick">' + monthLabel(dates[0]) + '</text><text x="' + (W - R) + '" y="' + (H - 6) + '" class="hc-tick" text-anchor="end">' + monthLabel(dates[n - 1]) + '</text>' + hits + '</svg></div>';
+  }
+  function copyText(text, msgEl) {
+    var done = function () { msgEl.textContent = 'Copied.'; }, fail = function () { msgEl.textContent = 'Select the text and copy it manually.'; };
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, fail); else fail();
+  }
+
+  /* ---------- Notes: kept in this browser only ---------- */
+  var NOTES = 'snf.notes.v1';
+  function loadNotes() { try { return JSON.parse(localStorage.getItem(NOTES)) || {}; } catch (e) { return {}; } }
+  function notesCard(key) {
+    var n = loadNotes()[key];
+    return '<div class="sect noprint"><span>Notes <span class="muted" style="font-weight:400">· private to this browser</span></span></div>' +
+      '<div class="card noprint"><textarea id="notebox" rows="3" data-key="' + esc(key) + '" placeholder="For example: POC accepted, revisit pending. Only you can see this, on this device.">' + esc(n ? n.text : '') + '</textarea>' +
+      '<p class="src" id="notemsg">' + (n ? 'Last saved ' + esc(new Date(n.at).toLocaleString('en-US')) + '.' : 'Notes save as you type. They are not shared and are not included in printouts or Excel files.') + '</p></div>';
+  }
+  function wireNotes() {
+    var box = document.getElementById('notebox');
+    if (!box) return;
+    box.addEventListener('input', function () {
+      var all = loadNotes(), msg = document.getElementById('notemsg');
+      if (box.value.trim()) all[box.dataset.key] = { text: box.value, at: Date.now() }; else delete all[box.dataset.key];
+      try { localStorage.setItem(NOTES, JSON.stringify(all)); msg.textContent = 'Saved on this device at ' + new Date().toLocaleTimeString('en-US') + '.'; }
+      catch (e) { msg.textContent = 'This browser is blocking storage, so the note could not be saved.'; }
+    });
+  }
+
+  /* ---------- Nearby facilities (facility report) ---------- */
+  function milesBetween(a, b) {
+    var rad = Math.PI / 180, dLat = (b[0] - a[0]) * rad, dLon = (b[1] - a[1]) * rad;
+    var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(a[0] * rad) * Math.cos(b[0] * rad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return 3958.8 * 2 * Math.asin(Math.sqrt(h));
+  }
+  var PEER_METRICS = [['Overall rating', IX.overall, 0, 1], ['Health inspection rating', IX.health, 0, 1], ['Staffing rating', IX.staffing, 0, 1], ['Quality measure rating', IX.qm, 0, 1],
+    ['Occupancy (derived)', 'occ', 'p', 1], ['Total nurse hours per resident day', IX.hprd, 2, 1], ['Regulatory screening score', IX.risk, 0, -1]];
+  function drawPeers(ccn) {
+    var el = document.getElementById('peers'), me = byCcn()[ccn];
+    if (!el || !me) return;
+    var mode = S.peerMode || '10', hasXY = me[IX.lat] != null && me[IX.lon] != null;
+    if (!hasXY && mode !== 'county') mode = 'county';
+    var peers = S.index.filter(function (r) { return r[0] !== ccn; }).map(function (r) {
+      var d = hasXY && r[IX.lat] != null && r[IX.lon] != null ? milesBetween([me[IX.lat], me[IX.lon]], [r[IX.lat], r[IX.lon]]) : null;
+      return { r: r, d: d };
+    }).filter(function (p) {
+      return mode === 'county' ? p.r[IX.state] === me[IX.state] && p.r[IX.county] === me[IX.county] : p.d != null && p.d <= +mode;
+    }).sort(function (a, b) { return (a.d == null ? 1e9 : a.d) - (b.d == null ? 1e9 : b.d) || a.r[IX.name].localeCompare(b.r[IX.name]); });
+    var where = mode === 'county' ? 'in ' + esc(me[IX.county] || 'the same') + ' County, ' + esc(me[IX.state]) : 'within ' + mode + ' miles';
+    var show = function (v, c) { return v == null ? NA : c[2] === 'p' ? fmt(v * 100, 1) + '%' : fmt(v, c[2]); };
+    var h = '<div class="controls" style="margin-bottom:14px">' + [['10', 'Within 10 miles'], ['25', 'Within 25 miles'], ['county', 'Same county']].map(function (m) {
+      return '<button data-peer="' + m[0] + '" aria-pressed="' + (mode === m[0]) + '"' + (!hasXY && m[0] !== 'county' ? ' disabled' : '') + ' class="' + (mode === m[0] ? 'primary' : '') + '">' + m[1] + '</button>';
+    }).join('') + '<span class="muted small">' + peers.length + (peers.length === 1 ? ' other facility ' : ' other facilities ') + where + '</span>' +
+      (peers.length ? '<span style="flex:1"></span><a class="btn" href="#/p/' + [ccn].concat(peers.slice(0, 200).map(function (p) { return p.r[0]; })).join(',') + '">Open as portfolio</a>' : '') + '</div>';
+    if (!peers.length) { el.innerHTML = h + '<p class="muted" style="margin:0">CMS lists no other nursing home ' + where + '.</p>'; wirePeers(ccn); return; }
+    h += '<div class="scroll"><table class="cards"><thead><tr><th>Measure</th><th class="n">This facility</th><th class="n">Nearby median</th><th class="n">Rank</th><th>Position</th></tr></thead><tbody>' + PEER_METRICS.map(function (c) {
+      var mine = pval(me, c[1]), others = peers.map(function (p) { return pval(p.r, c[1]); }).filter(function (v) { return v != null; });
+      var better = others.filter(function (v) { return c[3] > 0 ? v > mine : v < mine; }).length, n = others.length + 1;
+      var rankTxt = mine == null || !others.length ? NA : (better + 1) + ' of ' + n;
+      var pos = mine == null || !others.length ? '' : better === 0 ? '<span class="chip good">Best nearby</span>' : better + 1 <= n / 2 ? '<span class="chip">Top half</span>' : better + 1 === n ? '<span class="chip warn">Lowest nearby</span>' : '<span class="chip">Bottom half</span>';
+      return '<tr><td>' + c[0] + (c[3] < 0 ? ' <span class="muted small">(lower is better)</span>' : '') + '</td><td class="n strong">' + show(mine, c) + '</td><td class="n">' + show(median(others), c) + '</td><td class="n">' + rankTxt + '</td><td>' + pos + '</td></tr>';
+    }).join('') + '</tbody></table></div>' +
+      '<details style="margin-top:14px" class="printopen"' + (peers.length <= 12 ? ' open' : '') + '><summary class="small">List the ' + peers.length + ' nearby ' + (peers.length === 1 ? 'facility' : 'facilities') + '</summary><div class="scroll tall" style="margin-top:8px"><table class="cards"><thead><tr><th>Facility</th><th class="n">Miles</th><th class="n">Beds</th><th class="n">Occupancy</th><th class="n">Overall ★</th><th class="n">Health ★</th><th class="n">Staffing ★</th><th class="n">QM ★</th><th class="n">Screening score</th></tr></thead><tbody>' +
+      peers.map(function (p) {
+        var r = p.r, st = function (v) { return v == null ? '<span class="na">NR</span>' : '<i class="sw s' + v + '"></i>' + v; }, o = pval(r, 'occ');
+        return '<tr><td>' + nameCell(r) + '</td><td class="n">' + (p.d == null ? NA : fmt(p.d, 1)) + '</td><td class="n">' + fmt(r[IX.beds], 0) + '</td><td class="n">' + (o == null ? NA : fmt(o * 100, 1) + '%') + '</td><td class="n">' + st(r[IX.overall]) + '</td><td class="n">' + st(r[IX.health]) + '</td><td class="n">' + st(r[IX.staffing]) + '</td><td class="n">' + st(r[IX.qm]) + '</td><td class="n">' + fmt(r[IX.risk], 0) + '</td></tr>';
+      }).join('') + '</tbody></table></div></details>' +
+      '<p class="src">Distance is a straight line between the coordinates CMS publishes, not driving distance. Rank 1 is the best of this facility and the nearby facilities that report the measure. The median covers the nearby facilities only. This is not a market study.</p>';
+    el.innerHTML = h;
+    labelCells(el);
+    wirePeers(ccn);
+  }
+  function wirePeers(ccn) {
+    Array.prototype.forEach.call(document.querySelectorAll('#peers [data-peer]'), function (b) {
+      b.addEventListener('click', function () { S.peerMode = b.dataset.peer; drawPeers(ccn); });
+    });
+  }
+
+  /* ---------- Portfolio trend and lender narrative table ---------- */
+  var HEAVY = 60;   // above this many facilities, per-facility detail loads only on request
+  function portfolioTrend(fs) {
+    var dates = null;
+    fs.forEach(function (f) { if (f.history && (!dates || f.history.dates.length > dates.length)) dates = f.history.dates; });
+    if (!dates || dates.length < 2) return '<p class="muted" style="margin:0">Release history is not available.</p>';
+    var at = function (f, key, d) { var i = f.history ? f.history.dates.indexOf(d) : -1; return i === -1 ? null : f.history[key][i]; };
+    var series = function (fn) { return dates.map(function (d) { return fn(fs.map(function (f) { return { o: at(f, 'overall', d), h: at(f, 'health', d), s: at(f, 'staffing', d), q: at(f, 'qm', d), sff: at(f, 'sff', d), ij: at(f, 'ij', d), harm: at(f, 'harm', d) }; })); }); };
+    var avgOf = function (k) { return function (rows) { var v = rows.map(function (r) { return r[k]; }).filter(function (x) { return x != null; }); return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : null; }; };
+    var sumOf = function (k) { return function (rows) { var v = rows.map(function (r) { return r[k]; }).filter(function (x) { return x != null; }); return v.length ? v.reduce(function (a, b) { return a + b; }, 0) : null; }; };
+    var count = function (test) { return function (rows) { var v = rows.filter(function (r) { return r.o != null || r.sff != null; }); return v.length ? v.filter(test).length : null; }; };
+    var M = [['Average overall rating', series(avgOf('o')), 2], ['Average health inspection rating', series(avgOf('h')), 2], ['Average staffing rating', series(avgOf('s')), 2], ['Average quality measure rating', series(avgOf('q')), 2],
+      ['Facilities at 1 star overall', series(count(function (r) { return r.o === 1; })), 0], ['SFF and SFF candidates', series(count(function (r) { return r.sff > 0; })), 0],
+      ['Immediate jeopardy citations', series(sumOf('ij')), 0], ['Actual harm citations', series(sumOf('harm')), 0]];
+    var inRel = dates.map(function (d) { return fs.filter(function (f) { return at(f, 'overall', d) != null || at(f, 'sff', d) != null; }).length; });
+    var first = function (v) { for (var i = 0; i < v.length; i++) if (v[i] != null) return v[i]; return null; };
+    return '<div class="rgrid four">' + M.map(function (m) { return trendChart(m[0], dates, m[1], m[2]); }).join('') + '</div>' +
+      '<details style="margin-top:12px" class="printopen"><summary class="small">View as a table</summary><div class="scroll" style="margin-top:8px"><table class="cards"><thead><tr><th>Measure</th><th class="n">' + monthLabel(dates[0]) + '</th><th class="n">' + monthLabel(dates[dates.length - 1]) + '</th><th class="n">Change</th></tr></thead><tbody>' +
+      M.map(function (m) {
+        var a = first(m[1]), b = m[1][m[1].length - 1], d = a == null || b == null ? null : b - a;
+        return '<tr><td>' + m[0] + '</td><td class="n">' + fmt(a, m[2]) + '</td><td class="n">' + fmt(b, m[2]) + '</td><td class="n">' + (d == null ? NA : (d > 0 ? '+' : d < 0 ? '−' : '') + fmt(Math.abs(d), m[2])) + '</td></tr>';
+      }).join('') + '</tbody></table></div></details>' +
+      '<p class="src">Covers the facilities in this portfolio today, across ' + dates.length + ' CMS releases. Citation counts are CMS\'s totals for the three most recent inspection cycles at each release. ' +
+      (Math.min.apply(null, inRel) < fs.length ? 'Not every facility appears in every release: ' + inRel[0] + ' of ' + fs.length + ' were in the ' + monthLabel(dates[0]) + ' release. ' : '') + 'Source: CMS Provider Information and Health Deficiencies archives.</p>';
+  }
+  function lnTable(fs, rows) {
+    var asof = fdate(S.manifest.processing_date).replace(/^0/, '').replace(/\/0/, '/');
+    var d = function (s) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s); return m ? (+m[2]) + '/' + (+m[3]) + '/' + m[1] : s; };
+    var rt = function (r) { return r[0] == null ? 'Not rated' : String(r[0]); };
+    var money0 = function (v) { return '$' + Number(v || 0).toLocaleString('en-US', { maximumFractionDigits: 0 }); };
+    var TBD = '[TBD - source needed: from the operator]';
+    var head = ['Facility', 'Overall Rating', 'Health Inspection', 'Staffing', 'Quality', 'Red Hand Icon', 'Penalties', 'Payment Denials', 'G+ Tags', 'G+ Survey Date', 'Acquisition Date', 'G+ Under Control'];
+    var body = fs.map(function (f) {
+      var g = f.deficiencies.filter(function (x) { return x[1] === 'H' && 'GHIJKL'.indexOf(x[3]) !== -1; });
+      var gd = g.map(function (x) { return x[0]; }).filter(function (v, i, a) { return a.indexOf(v) === i; }).sort().reverse().map(d).join(', ');
+      return [f.name.length >= 50 && f.legal_name ? f.legal_name : f.name, rt(f.ratings.overall), rt(f.ratings.health), rt(f.ratings.staffing), rt(f.ratings.qm), f.abuse ? 'Yes' : 'No', money0(f.penalties.fine_total), String(f.penalties.denials || 0), String(g.length), g.length ? gd : 'N/A', TBD, g.length ? TBD : '0'];
+    });
+    var av = function (k) { var v = fs.map(function (f) { return f.ratings[k][0]; }).filter(function (x) { return x != null; }); return v.length ? (v.reduce(function (a, b) { return a + b; }, 0) / v.length).toFixed(2) : 'N/A'; };
+    var fineAvg = fs.length ? fs.reduce(function (a, f) { return a + (f.penalties.fine_total || 0); }, 0) / fs.length : 0;
+    var avgRow = ['Portfolio average', av('overall'), av('health'), av('staffing'), av('qm'), '', money0(fineAvg), '', (fs.reduce(function (a, f) { return a + f.deficiencies.filter(function (x) { return x[1] === 'H' && 'GHIJKL'.indexOf(x[3]) !== -1; }).length; }, 0) / (fs.length || 1)).toFixed(2), '', '', TBD];
+    var all = [head].concat(body).concat([avgRow]);
+    return {
+      html: '<table class="cards"><thead><tr>' + head.map(function (x, i) { return '<th' + (i ? ' class="n"' : '') + '>' + x + '</th>'; }).join('') + '</tr></thead><tbody>' + body.concat([avgRow]).map(function (r, k) {
+        return '<tr' + (k === body.length ? ' class="total"' : '') + '>' + r.map(function (x, i) { return '<td' + (i ? ' class="n"' : '') + '>' + (x === TBD ? '<span class="na">TBD</span>' : esc(x)) + '</td>'; }).join('') + '</tr>';
+      }).join('') + '</tbody></table>',
+      tsv: 'Portfolio CMS star ratings as of ' + asof + '\n' + all.map(function (r) { return r.join('\t'); }).join('\n')
+    };
+  }
+  function wirePortfolioDetail(rows) {
+    var box = document.getElementById('pdetail');
+    if (!box) return;
+    var run = function () {
+      box.innerHTML = '<p class="muted" style="margin:0">Loading ' + rows.length + ' facility files…</p>';
+      loadFacilities(rows.map(function (r) { return r[0]; })).then(function (fs) {
+        var ln = lnTable(fs, rows);
+        box.innerHTML = portfolioTrend(fs);
+        var lnBox = document.getElementById('plnbox');
+        lnBox.innerHTML = '<div class="scroll">' + ln.html + '</div><div class="controls" style="margin:12px 0 0"><button id="lncopy">Copy table</button><span id="lnmsg" class="muted small"></span></div>' +
+          '<p class="src">Laid out like the portfolio star rating table in approved Bravo narratives. The copied table pastes into Word or Excel. Penalties are CMS fines in the last three years. G+ tags are health citations at scope and severity G or higher in the last three inspection cycles. Acquisition dates and G+ tags under the operator\'s control are not CMS data and are marked TBD. Review against the state survey documents before use.</p>';
+        labelCells(lnBox);
+        document.getElementById('lncopy').addEventListener('click', function () { copyText(ln.tsv, document.getElementById('lnmsg')); });
+      });
+    };
+    if (rows.length <= HEAVY) run();
+    else {
+      box.innerHTML = '<div class="controls" style="margin:0"><button id="pdload">Load trend and narrative table</button><span class="muted small">Reads ' + rows.length + ' facility files, which can take a moment.</span></div>';
+      document.getElementById('pdload').addEventListener('click', run);
+    }
+  }
+
+  /* ---------- Owner track record ---------- */
+  function ownerTrack(rows, sinceBy) {
+    var box = document.getElementById('otrack');
+    if (!box) return;
+    var run = function () {
+      box.innerHTML = '<p class="muted" style="margin:0">Loading ' + rows.length + ' facility files…</p>';
+      loadFacilities(rows.map(function (r) { return r[0]; })).then(function (fs) {
+        var out = fs.filter(function (f) { return f.history && f.history.dates.length > 1; }).map(function (f) {
+          var H = f.history, since = sinceBy[f.ccn] || '', base = 0, known = false;
+          if (since && since > H.dates[0]) { known = true; for (var i = 0; i < H.dates.length; i++) if (H.dates[i] <= since) base = i; }
+          while (base < H.dates.length - 1 && H.overall[base] == null && H.health[base] == null) base++;
+          var last = H.dates.length - 1;
+          return { f: f, since: since, known: known, from: H.dates[base], o0: H.overall[base], o1: H.overall[last], h0: H.health[base], h1: H.health[last], ij0: H.ij[base], ij1: H.ij[last] };
+        });
+        var tally = function (list) { var t = { up: 0, same: 0, down: 0, n: 0 }; list.forEach(function (x) { if (x.o0 == null || x.o1 == null) return; t.n++; if (x.o1 > x.o0) t.up++; else if (x.o1 < x.o0) t.down++; else t.same++; }); return t; };
+        var kn = out.filter(function (x) { return x.known; }), old = out.filter(function (x) { return !x.known; });
+        var line = function (t, lead) { return t.n ? '<p style="margin:0 0 8px">' + lead + ' <b>' + t.up + '</b> improved, <b>' + t.same + '</b> unchanged, and <b>' + t.down + '</b> declined in overall rating.</p>' : ''; };
+        var first = out.length ? out.reduce(function (a, x) { return x.f.history.dates[0] < a ? x.f.history.dates[0] : a; }, '9999') : '';
+        var delta = function (a, b) { if (a == null || b == null) return ''; var d = b - a; return d === 0 ? '<span class="muted">No change</span>' : '<span class="dir ' + (d > 0 ? 'good' : 'bad') + '">' + (d > 0 ? '▲ +' : '▼ −') + Math.abs(d) + '</span>'; };
+        var st = function (v) { return v == null ? '<span class="na">NR</span>' : v; };
+        out.sort(function (a, b) { return (b.known - a.known) || (b.since || '').localeCompare(a.since || '') || a.f.name.localeCompare(b.f.name); });
+        box.innerHTML = line(tally(kn), 'Of the ' + tally(kn).n + ' rated ' + (tally(kn).n === 1 ? 'facility' : 'facilities') + ' this name became associated with after ' + monthLabel(first) + ',') +
+          line(tally(old), 'Of the ' + tally(old).n + ' rated ' + (tally(old).n === 1 ? 'facility' : 'facilities') + ' with an earlier or unreported association date, measured from ' + monthLabel(first) + ',') +
+          '<div class="scroll tall"><table class="cards"><thead><tr><th>Facility</th><th>Associated since</th><th>Measured from</th><th class="n">Overall then</th><th class="n">Overall now</th><th class="n">Change</th><th class="n">Health then</th><th class="n">Health now</th><th class="n">IJ cites then</th><th class="n">IJ cites now</th></tr></thead><tbody>' +
+          out.map(function (x) {
+            return '<tr><td><a class="fname" href="#/f/' + esc(x.f.ccn) + '">' + esc(x.f.name) + '</a><div class="muted small">' + esc(x.f.ccn) + ' · ' + esc(x.f.city) + ', ' + esc(x.f.state) + '</div></td><td>' + (x.since ? fdate(x.since) : '<span class="na">Not reported</span>') + '</td><td>' + monthLabel(x.from) + (x.known ? '' : ' <span class="muted small">(start of history)</span>') +
+              '</td><td class="n">' + st(x.o0) + '</td><td class="n">' + st(x.o1) + '</td><td class="n">' + delta(x.o0, x.o1) + '</td><td class="n">' + st(x.h0) + '</td><td class="n">' + st(x.h1) + '</td><td class="n">' + st(x.ij0) + '</td><td class="n">' + st(x.ij1) + '</td></tr>';
+          }).join('') + '</tbody></table></div>' +
+          '<p class="src">Indicative only. "Then" is the last CMS release on or before the association date CMS reports for this name at the facility (the earliest date across its roles). Release history starts in ' + monthLabel(first) + ', so earlier associations are measured from that release. CMS association dates are self-reported and can be imprecise, and a rating change is not proof of what the owner or manager did. Immediate jeopardy counts cover the three most recent inspection cycles at each release.</p>';
+        labelCells(box);
+      });
+    };
+    if (rows.length <= HEAVY) run();
+    else if (rows.length > 400) box.innerHTML = '<p class="muted" style="margin:0">This name is reported at ' + rows.length + ' facilities, which is too many to load here. Open a smaller set as a portfolio to see its trend.</p>';
+    else {
+      box.innerHTML = '<div class="controls" style="margin:0"><button id="otload">Load track record</button><span class="muted small">Reads ' + rows.length + ' facility files, which can take a moment.</span></div>';
+      document.getElementById('otload').addEventListener('click', run);
+    }
+  }
+
+  /* ---------- Screening list ---------- */
+  function renderScreen() {
+    var T = S.lookups.risk.tiers, F = S.screen = S.screen || { state: '', bedsMin: '', bedsMax: '', star: '', occ: '', tiers: T.map(function (t, i) { return i < 2; }), noSff: true, noAbuse: false, chain: '', sort: 'risk' };
+    var states = {};
+    S.index.forEach(function (r) { states[r[IX.state]] = 1; });
+    var num = function (id, label, ph) { return '<label class="fld">' + label + '<input type="number" min="0" id="' + id + '" value="' + esc(F[id.slice(2)]) + '" placeholder="' + ph + '"></label>'; };
+    app.innerHTML = printHead('Screening list') + '<div class="phead"><div><h1>Screening list</h1><div class="sub">Filter all ' + S.index.length.toLocaleString() + ' facilities · CMS data as of ' + fdate(S.manifest.processing_date) + '</div></div>' +
+      '<div class="controls"><button id="scopen" class="primary">Open as portfolio</button><button onclick="window.print()">Print / PDF</button></div></div>' +
+      '<div class="card noprint"><div class="filters">' +
+      '<label class="fld">State<select id="s_state"><option value="">All states</option>' + Object.keys(states).sort().map(function (s) { return '<option' + (s === F.state ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select></label>' +
+      num('s_bedsMin', 'Beds, at least', 'Any') + num('s_bedsMax', 'Beds, at most', 'Any') +
+      '<label class="fld">Overall rating, at least<select id="s_star"><option value="">Any</option>' + [2, 3, 4, 5].map(function (n) { return '<option value="' + n + '"' + (String(n) === String(F.star) ? ' selected' : '') + '>' + n + ' stars</option>'; }).join('') + '</select></label>' +
+      num('s_occ', 'Occupancy %, at least', 'Any') +
+      '<label class="fld">Chain<select id="s_chain"><option value="">Any</option><option value="y"' + (F.chain === 'y' ? ' selected' : '') + '>Part of a CMS chain</option><option value="n"' + (F.chain === 'n' ? ' selected' : '') + '>Not in a chain</option></select></label>' +
+      '<label class="fld">Sort by<select id="s_sort">' + [['risk', 'Screening score, lowest first'], ['riskd', 'Screening score, highest first'], ['beds', 'Beds, largest first'], ['overall', 'Overall rating, highest first'], ['name', 'Name']].map(function (o) { return '<option value="' + o[0] + '"' + (F.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label></div>' +
+      '<div class="controls" style="margin:14px 0 0"><span class="small strong">Tiers:</span>' + T.map(function (t, i) { return '<label class="cb"><input type="checkbox" data-tierbox="' + i + '"' + (F.tiers[i] ? ' checked' : '') + '> ' + esc(t[2]) + '</label>'; }).join('') +
+      '<span style="width:12px"></span><label class="cb"><input type="checkbox" id="s_noSff"' + (F.noSff ? ' checked' : '') + '> Exclude SFF and candidates</label><label class="cb"><input type="checkbox" id="s_noAbuse"' + (F.noAbuse ? ' checked' : '') + '> Exclude abuse icon</label>' +
+      '<span style="flex:1"></span><button id="s_reset">Reset</button></div></div><div id="scout"></div>';
+    var matches = [];
+    function draw() {
+      var n = function (v) { return v === '' || v == null || isNaN(+v) ? null : +v; };
+      var bMin = n(F.bedsMin), bMax = n(F.bedsMax), star = n(F.star), occ = n(F.occ);
+      matches = S.index.filter(function (r) {
+        var ti = Rollup.tierOf(r, T), o = pval(r, 'occ');
+        return (!F.state || r[IX.state] === F.state) && (bMin == null || (r[IX.beds] != null && r[IX.beds] >= bMin)) && (bMax == null || (r[IX.beds] != null && r[IX.beds] <= bMax)) &&
+          (star == null || (r[IX.overall] != null && r[IX.overall] >= star)) && (occ == null || (o != null && o * 100 >= occ)) && (ti != null && F.tiers[ti]) &&
+          (!F.noSff || !r[IX.sff]) && (!F.noAbuse || !r[IX.abuse]) && (!F.chain || (F.chain === 'y') === !!r[IX.chain]);
+      });
+      var key = { risk: [IX.risk, 1], riskd: [IX.risk, -1], beds: [IX.beds, -1], overall: [IX.overall, -1], name: [IX.name, 1] }[F.sort];
+      matches.sort(function (a, b) { var x = a[key[0]], y = b[key[0]]; if (x == null) return 1; if (y == null) return -1; return (x < y ? -1 : x > y ? 1 : 0) * key[1] || a[IX.name].localeCompare(b[IX.name]); });
+      var s = Rollup.summarize(matches), SHOW = 200;
+      document.getElementById('scopen').disabled = !matches.length || matches.length > 300;
+      document.getElementById('scopen').title = matches.length > 300 ? 'Narrow the list to 300 facilities or fewer to open it as a portfolio.' : '';
+      document.getElementById('scout').innerHTML = '<div class="tiles">' +
+        '<div class="tile"><div class="k">Facilities matching</div><div class="v">' + matches.length.toLocaleString() + '</div><div class="s">of ' + S.index.length.toLocaleString() + '</div></div>' +
+        '<div class="tile"><div class="k">Certified beds</div><div class="v">' + fmt(s.beds, 0) + '</div></div>' +
+        '<div class="tile"><div class="k">Average overall rating</div><div class="v">' + (s.ratings.overall.avg == null ? NA : fmt(s.ratings.overall.avg, 2)) + '</div></div>' +
+        '<div class="tile"><div class="k">Average screening score</div><div class="v">' + (s.risk.avg == null ? NA : fmt(s.risk.avg, 0)) + '</div></div></div>' +
+        (matches.length ? '<div class="card" style="padding:6px 8px"><div class="scroll tall"><table class="cards"><thead><tr><th style="min-width:240px">Facility</th><th>State</th><th class="n">Beds</th><th class="n">Occupancy</th><th class="n">Overall ★</th><th class="n">Health ★</th><th class="n">Staffing ★</th><th class="n">QM ★</th><th class="n">Screening score</th><th>Tier</th><th>Chain</th></tr></thead><tbody>' +
+          matches.slice(0, SHOW).map(function (r) {
+            var st = function (v) { return v == null ? '<span class="na">NR</span>' : '<i class="sw s' + v + '"></i>' + v; }, o = pval(r, 'occ'), ti = Rollup.tierOf(r, T);
+            return '<tr><td>' + nameCell(r) + '</td><td>' + esc(r[IX.state]) + '</td><td class="n">' + fmt(r[IX.beds], 0) + '</td><td class="n">' + (o == null ? NA : fmt(o * 100, 1) + '%') + '</td><td class="n">' + st(r[IX.overall]) + '</td><td class="n">' + st(r[IX.health]) + '</td><td class="n">' + st(r[IX.staffing]) + '</td><td class="n">' + st(r[IX.qm]) + '</td><td class="n">' + fmt(r[IX.risk], 0) + '</td><td><span class="chip tier t' + ti + '">' + esc(T[ti][2]) + '</span></td><td class="small">' + esc(r[IX.chain] || '') + '</td></tr>';
+          }).join('') + '</tbody></table></div>' + (matches.length > SHOW ? '<p class="muted small" style="padding:8px">Showing the first ' + SHOW + ' of ' + matches.length.toLocaleString() + '. Narrow the filters, or open the list as a portfolio (up to 300) for the full table and Excel export.</p>' : '') + '</div>' :
+          '<div class="card"><p class="muted" style="margin:0">No facility matches these filters.</p></div>') +
+        '<p class="src">Tiers and scores are the Bravo regulatory screening score, not a CMS figure and not a credit risk measure. Occupancy is derived. Facilities CMS has not scored are left out.</p>';
+      labelCells(document.getElementById('scout'));
+    }
+    ['state', 'bedsMin', 'bedsMax', 'star', 'occ', 'chain', 'sort'].forEach(function (k) {
+      var el = document.getElementById('s_' + k);
+      el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', function () { F[k] = el.value; draw(); });
+    });
+    ['noSff', 'noAbuse'].forEach(function (k) { var el = document.getElementById('s_' + k); el.addEventListener('change', function () { F[k] = el.checked; draw(); }); });
+    Array.prototype.forEach.call(app.querySelectorAll('[data-tierbox]'), function (el) { el.addEventListener('change', function () { F.tiers[+el.dataset.tierbox] = el.checked; draw(); }); });
+    document.getElementById('s_reset').addEventListener('click', function () { S.screen = null; renderScreen(); });
+    document.getElementById('scopen').addEventListener('click', function () { location.hash = '#/p/' + matches.map(function (r) { return r[0]; }).join(','); });
+    draw();
+    window.scrollTo(0, 0);
+  }
+
   /* ---------- Compare ---------- */
   function renderCompare(arg) {
     var ccns = Rollup.parseCcns(arg || '').slice(0, 4);
@@ -1685,10 +1976,12 @@
     getOwners().then(function (O) {
       var i = O.names.indexOf(name);
       if (i === -1) { app.innerHTML = '<a class="back" href="#/owners">← Owner lookup</a><div class="card"><h1>Name not found</h1><p>No owner or manager named ' + esc(name) + ' is in the current CMS release.</p></div>'; return; }
-      var by = {}, order = [];
+      var by = {}, order = [], sinceBy = {};
       O.links[i].forEach(function (l) {
         if (!by[l[0]]) { by[l[0]] = []; order.push(l[0]); }
         by[l[0]].push([O.roles[l[1]], l[2]]);
+        var c = S.index[l[0]][0];
+        if (l[3] && (!sinceBy[c] || l[3] < sinceBy[c])) sinceBy[c] = l[3];
       });
       var rows = order.map(function (fi) { return S.index[fi]; }).sort(function (a, b) { return a[3].localeCompare(b[3]) || a[1].localeCompare(b[1]); });
       var ccns = rows.map(function (r) { return r[0]; });
@@ -1708,7 +2001,9 @@
             '</td><td class="n small">' + roles.map(function (x) { return esc(x[1]) || '&nbsp;'; }).join('<br>') + '</td><td class="n">' + fmt(r[IX.beds], 0) + '</td><td class="n">' + (r[IX.overall] == null ? '<span class="na">NR</span>' : '<i class="sw s' + r[IX.overall] + '"></i>' + r[IX.overall]) +
             '</td><td class="n">' + fmt(r[IX.risk], 0) + '</td><td>' + (r[IX.sff] ? '<span class="chip ' + (r[IX.sff] === 'SFF' ? 'bad' : 'warn') + '">' + esc(r[IX.sff]) + '</span> ' : '') + (r[IX.abuse] ? '<span class="chip bad">Abuse</span>' : '') + '</td></tr>';
         }).join('') + '</tbody></table></div></div>' +
+        '<div class="sect"><span>Track record <span class="muted" style="font-weight:400">· ratings when this name became associated, and now</span></span></div><div class="card" id="otrack"></div>' +
         '<p class="src">A name can appear for ownership, management, or governance roles; the role column shows which. Names are matched exactly as published, so check the Owner lookup for other spellings. Source: CMS Ownership, processing date ' + fdate(S.manifest.processing_date) + '.</p>';
+      ownerTrack(rows, sinceBy);
       setPrintFooter('Bravo Capital · SNF Analytics · Owner report · ' + name + ' · CMS data as of ' + fdate(S.manifest.processing_date));
       document.getElementById('oxlsx').addEventListener('click', function () {
         var out = [];
@@ -1840,13 +2135,22 @@
     var summary = (R.overall[0] == null ? 'The subject facility does not currently have an overall CMS star rating.' : 'The subject is a ' + R.overall[0] + '-star facility.') +
       ' Over the last three survey cycles, it has ' + (gplus === 0 ? 'not received any citations at a scope and severity level of G or higher' : 'received ' + gplus + (gplus === 1 ? ' citation' : ' citations') + ' at a scope and severity level of G or higher' + (ij ? ', including ' + ij + ' at the immediate jeopardy level' : '')) + '.' +
       ' The facility ' + (f.abuse ? 'has been cited for abuse' : 'has not been cited for abuse') + ' and ' + sff + '.';
+    var O = R.overall[0], Q = R.qm[0], anyPen = (P.fines || 0) + (P.denials || 0) > 0;
+    var qoc = (O == null ? 'The subject does not currently have an overall CMS star rating' + (Q == null ? '.' : ' and has a Quality Measures rating of ' + Q + '.') :
+      Q == null ? 'The subject has an overall CMS star rating of ' + O + '.' :
+      O < 3 && Q >= 4 ? 'The subject has an overall CMS star rating of ' + O + '. Although the overall rating is below average, the facility\'s Quality Measures rating is ' + Q + '.' :
+      'The subject has an overall CMS star rating of ' + O + ' and a Quality Measures rating of ' + Q + '.') +
+      ' Over the past three survey cycles, the subject has ' + (anyPen ? 'incurred ' + (P.fines || 0) + (P.fines === 1 ? ' fine' : ' fines') + (P.fines ? ' totaling ' + money0(P.fine_total) : '') + ' and ' + (P.denials || 0) + (P.denials === 1 ? ' payment denial' : ' payment denials') : 'not incurred any penalties or payment denials') +
+      ' and has ' + (gplus === 0 ? 'not received any citations at a scope and severity level of G or higher' : 'received ' + gplus + (gplus === 1 ? ' citation' : ' citations') + ' at a scope and severity level of G or higher') + '.' +
+      ' The facility ' + (f.abuse ? 'has been cited for abuse' : 'has not been cited for abuse') + ' and ' + sff + '.';
     return ['Subject\'s State Surveys', '',
       'The star ratings for the subject facility, as of ' + asof + ', are as follows:', '',
       'Overall Rating | Health Inspection | Staffing | Quality',
       rt(R.overall) + ' | ' + rt(R.health) + ' | ' + rt(R.staffing) + ' | ' + rt(R.qm), '',
       'The application includes the following state surveys issued on the following dates over the last three (3) years of operations:', '',
       '3 Years of Survey Inspections', 'Date of survey/inspection | Date state issued letter approving POC'].concat(lines.length ? lines : ['[TBD - source needed: survey dates, from the state survey documents]']).concat(['',
-      'Penalties:', pen, '', 'Summary:', summary]).join('\n');
+      'Penalties:', pen, '', 'Summary:', summary, '', '',
+      'Risk Factors bullet', '', 'Subject Quality of Care: ' + qoc]).join('\n');
   }
 
   /* One shared tooltip for chart marks (hover and keyboard focus). */
@@ -1880,7 +2184,7 @@
   function route() {
     var h = location.hash.replace(/^#\/?/, '');
     tip.style.display = 'none';
-    var section = h === 'status' ? 'status' : /^(portfolios|portfolio\/|p\/|chain\/|shared\/|import\/)/.test(h) ? 'portfolios' : /^owner/.test(h) ? 'owners' : h === 'changes' ? 'changes' : h === 'risk' ? 'risk' : 'search';
+    var section = h === 'status' ? 'status' : /^(portfolios|portfolio\/|p\/|chain\/|shared\/|import\/)/.test(h) ? 'portfolios' : /^owner/.test(h) ? 'owners' : h === 'changes' ? 'changes' : h === 'risk' ? 'risk' : h === 'screen' ? 'screen' : 'search';
     setPrintFooter('Bravo Capital · SNF Analytics · CMS data as of ' + fdate(S.manifest.processing_date));
     Array.prototype.forEach.call(document.querySelectorAll('.top nav a'), function (a) { a.className = a.dataset.nav === section ? 'on' : ''; });
     if (/^f\/[^/]+\/summary$/.test(h)) renderSummary(decodeURIComponent(h.slice(2, -8)));
@@ -1897,6 +2201,7 @@
     else if (h.indexOf('owner/') === 0) renderOwner(decodeURIComponent(h.slice(6)));
     else if (h === 'changes') renderChanges();
     else if (h === 'risk') renderRisk();
+    else if (h === 'screen') renderScreen();
     else renderSearch();
   }
 

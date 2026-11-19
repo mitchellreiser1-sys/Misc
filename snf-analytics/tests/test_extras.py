@@ -56,14 +56,14 @@ class Extras(unittest.TestCase):
 
     def test_owner_index(self):
         rows = [{CCN: "000002", "Owner Name": "SMITH, A", "Owner Type": "Individual", "Ownership Percentage": "5%",
-                 "Role played by Owner or Manager in Facility": "DIRECT"},
+                 "Role played by Owner or Manager in Facility": "DIRECT", "Association Date": "since 02/14/2020"},
                 {CCN: "000001", "Owner Name": "SMITH, A", "Owner Type": "Individual", "Ownership Percentage": "NOT APPLICABLE",
                  "Role played by Owner or Manager in Facility": "OFFICER"},
                 {CCN: "000001", "Owner Name": "", "Owner Type": "", "Ownership Percentage": "",
                  "Role played by Owner or Manager in Facility": "Ownership Data Not Available"}]
         ix = extras.owner_index(rows, {"000001": 0, "000002": 1})
         self.assertEqual(ix["names"], ["SMITH, A"])
-        self.assertEqual(ix["links"], [[[1, 0, "5%"], [0, 1, ""]]])
+        self.assertEqual(ix["links"], [[[1, 0, "5%", "2020-02-14"], [0, 1, "", ""]]])
         self.assertEqual(ix["roles"], ["DIRECT", "OFFICER"])
 
 

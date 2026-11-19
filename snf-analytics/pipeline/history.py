@@ -126,11 +126,15 @@ def previous_date(history, date):
 
 
 def series(history, ccn, limit=36):
-    """Published star ratings for one facility across releases, oldest first."""
+    """Published star ratings, Special Focus code, abuse icon, and citation counts
+    for one facility across releases, oldest first."""
     ds = dates(history)[-limit:]
-    out = {"dates": ds, "overall": [], "health": [], "staffing": [], "qm": []}
+    keys = ("overall", "health", "staffing", "qm", "sff", "abuse", "ij", "harm")
+    out = {"dates": ds}
+    for k in keys:
+        out[k] = []
     for d in ds:
         row = history["snapshots"][d].get(ccn)
-        for k in ("overall", "health", "staffing", "qm"):
+        for k in keys:
             out[k].append(row[F[k]] if row else None)
     return out
