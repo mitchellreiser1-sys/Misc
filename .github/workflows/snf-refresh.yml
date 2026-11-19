@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url || steps.deploy_retry.outputs.page_url }}
     defaults:
       run:
         working-directory: snf-analytics
@@ -86,9 +86,18 @@ jobs:
         if: steps.build.outputs.changed == 'true'
         with:
           path: snf-analytics/dist
+      # GitHub occasionally cannot find the just-uploaded site files for a few
+      # seconds. One retry after a short wait covers that without failing the run.
       - uses: actions/deploy-pages@v4
         if: steps.build.outputs.changed == 'true'
         id: deploy
+        continue-on-error: true
+      - name: Wait before retrying the deployment
+        if: steps.build.outputs.changed == 'true' && steps.deploy.outcome == 'failure'
+        run: sleep 45
+      - uses: actions/deploy-pages@v4
+        if: steps.build.outputs.changed == 'true' && steps.deploy.outcome == 'failure'
+        id: deploy_retry
 
       - name: Save release history for the next refresh
         if: steps.build.outputs.changed == 'true'
@@ -108,7 +117,7 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           WATCHLIST_CCNS: ${{ secrets.WATCHLIST_CCNS }}
-        run: python -m pipeline.notify --site dist --site-url "${{ steps.deploy.outputs.page_url }}"
+        run: python -m pipeline.notify --site dist --site-url "${{ steps.deploy.outputs.page_url || steps.deploy_retry.outputs.page_url }}"
 
       - name: Open an issue when the refresh fails
         if: failure()
