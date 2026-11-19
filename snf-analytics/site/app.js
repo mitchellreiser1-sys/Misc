@@ -696,7 +696,7 @@
       (o.chain && o.chain.count != null && o.chain.count !== s.facilities ? ' (CMS reports ' + o.chain.count + ')' : '') + ' · CMS data as of ' + fdate(S.manifest.processing_date) + '</div></div>' +
       '<div class="controls">' + (o.savedId ? (canShare() ? '<button id="pshare" class="primary"' + (o.ccns.length ? '' : ' disabled') + '>Save for everyone</button>' : '') + '<button id="prename">Rename</button>' :
         o.shared ? '<button id="pedit">Edit</button>' + (canShare() ? '<button id="psdel">Delete</button>' : '') : '<button id="psave" class="primary">Save as portfolio</button>') +
-      '<button id="plink">Copy link</button><button id="pxlsx">Download Excel</button><button id="pcsv">CSV</button><button onclick="window.print()">Print / PDF</button></div></div>' +
+      '<button id="pxlsx">Download Excel</button><button onclick="window.print()">Print / PDF</button></div></div>' +
       (o.savedId || o.shared ? pendingBanner() : '') +
       (s.sff + s.sffCandidates > 0 ? '<div class="callout sffnote"><strong>This portfolio includes ' +
         [s.sff ? s.sff + (s.sff === 1 ? ' Special Focus Facility' : ' Special Focus Facilities') : '', s.sffCandidates ? s.sffCandidates + (s.sffCandidates === 1 ? ' SFF candidate' : ' SFF candidates') : ''].filter(Boolean).join(' and ') +
@@ -887,12 +887,7 @@
     }
 
     function wire() {
-      var link = location.origin + location.pathname + '#/p/' + o.ccns.join(',');
-      var pl = document.getElementById('plink'), ps = document.getElementById('psave'), pc = document.getElementById('pcsv');
-      pl.addEventListener('click', function () {
-        if (navigator.clipboard) navigator.clipboard.writeText(link).then(function () { pl.textContent = 'Link copied'; }, function () { prompt('Copy this link', link); });
-        else prompt('Copy this link', link);
-      });
+      var ps = document.getElementById('psave');
       if (ps) ps.addEventListener('click', function () {
         var name = prompt('Portfolio name', o.title === 'Portfolio' ? '' : o.title);
         if (!name || !name.trim()) return;
@@ -900,7 +895,6 @@
         l.push(p);
         if (savePortfolios(l)) location.hash = '#/portfolio/' + p.id; else ps.textContent = 'Could not save';
       });
-      pc.addEventListener('click', function () { downloadCsv(o.title, rows); });
       var psh = document.getElementById('pshare'), ped = document.getElementById('pedit'), psd = document.getElementById('psdel');
       if (psh) psh.addEventListener('click', function () { sendForEveryone('save', o.title, o.ccns); renderSaved(o.savedId); });
       if (ped) ped.addEventListener('click', function () {
@@ -919,29 +913,6 @@
       });
       setPrintFooter('Bravo Capital · SNF Analytics · ' + o.title + ' · ' + s.facilities + ' facilities · CMS data as of ' + fdate(S.manifest.processing_date));
     }
-  }
-
-  function csvText(rows) {
-    var head = ['CCN', 'Facility', 'City', 'State', 'Chain', 'Certified beds', 'Avg residents per day', 'Occupancy (derived)', 'Overall rating', 'Health inspection rating', 'Staffing rating', 'QM rating',
-      'Total nurse HPRD', 'RN HPRD', 'Total nursing turnover %', 'Cycle 1 health deficiencies', 'Total weighted health survey score', 'Actual harm citations (3 cycles)', 'Immediate jeopardy citations (3 cycles)',
-      'Fines', 'Fine dollars', 'Payment denials', 'Special focus status', 'Abuse icon', 'Changed ownership in last 12 months'];
-    var DQ = '"';
-    var q = function (v) { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? DQ + v.replace(/"/g, DQ + DQ) + DQ : v; };
-    var lines = [head.join(',')].concat(rows.map(function (r) {
-      var occ = pval(r, 'occ');
-      // The ="015009" form keeps Excel from stripping the CCN's leading zeros
-      return [q('="' + r[0] + '"')].concat([r[IX.name], r[IX.city], r[IX.state], r[IX.chain], r[IX.beds], r[IX.residents], occ == null ? '' : occ.toFixed(4), r[IX.overall], r[IX.health], r[IX.staffing], r[IX.qm],
-        r[IX.hprd], r[IX.rnHprd], r[IX.turnover], r[IX.c1defs], r[IX.weighted], r[IX.harm], r[IX.jeopardy], r[IX.fines], r[IX.fineTotal], r[IX.denials], r[IX.sff], r[IX.abuse] ? 'Y' : 'N', r[IX.chow] ? 'Y' : 'N'
-      ].map(q)).join(',');
-    }));
-    lines.push('', q('Source: CMS Provider Data Catalog, processing date ' + S.manifest.processing_date + '. Blank means not available. Occupancy is derived.'));
-    return '﻿' + lines.join('\r\n');
-  }
-  function downloadCsv(title, rows) {
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csvText(rows)], { type: 'text/csv' }));
-    a.download = (title || 'portfolio').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') + '_' + S.manifest.processing_date + '.csv';
-    document.body.appendChild(a); a.click(); a.remove();
   }
 
   /* ---------- Shared: Excel export ---------- */
@@ -1359,6 +1330,16 @@
       '<div class="card"><h2>What it is</h2><p style="margin-top:0">A points score whose components add to exactly 100, where higher means more regulatory risk. Every input is a value CMS publishes or a simple count of published records, and every facility report shows the points behind its score.</p>' +
       '<p style="margin-bottom:0">It is a screening aid: it shows where to look first. It measures regulatory risk only. It has not been tested against credit outcomes such as defaults or operating losses, and it should not be used alone in a credit decision or a lender narrative.</p>' +
       '<p class="muted" style="margin-bottom:0">In the current release the median facility scores ' + p50 + ', the top quarter starts at ' + p75 + ', and the top 10% starts at ' + p90 + '.</p></div>';
+
+    var tcount = Rollup.tierCounts(S.index, R.tiers), ttotal = tcount.reduce(function (a, b) { return a + b; }, 0);
+    h += '<div class="card"><h2>Facilities in each tier today</h2><p class="muted" style="margin-top:0">All ' + ttotal.toLocaleString() + ' facilities in the CMS release of ' + fdate(S.manifest.processing_date) + '. These figures are recalculated with every CMS release.</p>' +
+      '<div class="scroll"><table class="tiertable"><thead><tr><th>Tier</th><th>Score</th><th class="n">Facilities</th><th class="n">Share</th><th style="width:38%"></th></tr></thead><tbody>' +
+      R.tiers.map(function (t, i) {
+        var share = ttotal ? tcount[i] / ttotal : 0;
+        return '<tr><td><span class="chip tier t' + i + '">' + esc(t[2]) + '</span></td><td>' + t[0] + (t[1] >= 100 ? ' and up, or any SFF or SFF candidate' : ' to ' + t[1]) + '</td><td class="n strong">' + tcount[i].toLocaleString() + '</td><td class="n strong">' + pc(share) + '</td>' +
+          '<td><div class="tbar" role="img" aria-label="' + esc(t[2] + ': ' + pc(share).replace(/<[^>]+>/g, '')) + '"><i class="tsw t' + i + '" style="width:' + (share * 100).toFixed(1) + '%"></i></div></td></tr>';
+      }).join('') +
+      '<tr class="total"><td>All facilities</td><td></td><td class="n">' + ttotal.toLocaleString() + '</td><td class="n">100.0%</td><td></td></tr></tbody></table></div></div>';
 
     h += '<div class="card"><h2>How points are assigned</h2><div class="scroll"><table><thead><tr><th>Component</th><th class="n">Maximum</th><th>How points are earned</th></tr></thead><tbody>' +
       R.components.map(function (c) { return '<tr><td class="strong">' + esc(c[1]) + '</td><td class="n strong">' + c[3] + '</td><td>' + esc(c[2]) + '</td></tr>'; }).join('') +
