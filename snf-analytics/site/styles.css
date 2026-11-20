@@ -200,8 +200,8 @@ td.strong{font-weight:600}
 .ptable .fname{font-weight:500}
 #tip{position:fixed;z-index:50;pointer-events:none;background:var(--ink);color:var(--card);font-size:12px;padding:6px 9px;border-radius:6px;max-width:260px;display:none;box-shadow:0 4px 14px rgba(0,0,0,.18)}
 
-@media(max-width:1000px){.rgrid.four,.bands{grid-template-columns:1fr 1fr}}
-@media(max-width:860px){.grid2,.rgrid,.risk{grid-template-columns:1fr}.strip{grid-template-columns:1fr 1fr}.strip>div:nth-child(3){border-left:0}.strip>div:nth-child(n+3){border-top:1px solid var(--line2)}.asof{margin-left:0}.risk>div:first-child>.row:last-child{border-bottom:1px solid var(--line2)}}
+@media screen and (max-width:1000px){.rgrid.four,.bands{grid-template-columns:1fr 1fr}}
+@media screen and (max-width:860px){.grid2,.rgrid,.risk{grid-template-columns:1fr}.strip{grid-template-columns:1fr 1fr}.strip>div:nth-child(3){border-left:0}.strip>div:nth-child(n+3){border-top:1px solid var(--line2)}.asof{margin-left:0}.risk>div:first-child>.row:last-child{border-bottom:1px solid var(--line2)}}
 /* ---------- New sections ---------- */
 a.btn{display:inline-block;font-weight:500;padding:7px 13px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);white-space:nowrap}
 a.btn:hover{background:var(--hover);text-decoration:none}
@@ -254,7 +254,7 @@ a.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--ac
 .chip.tier.t1{background:var(--card);border-color:var(--line);color:var(--ink2)}
 .chip.tier.t2{background:var(--warnbg);border-color:var(--warnline);color:var(--warn)}
 .chip.tier.t3{background:var(--badbg);border-color:var(--badline);color:var(--bad)}
-@media(max-width:860px){.riskcard{grid-template-columns:1fr}}
+@media screen and (max-width:860px){.riskcard{grid-template-columns:1fr}}
 
 /* ---------- Home, glossary, compare, summary, map ---------- */
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -308,11 +308,11 @@ table.cmp tr.grp th{font-size:11.5px;text-transform:uppercase;letter-spacing:.06
 .fld{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--ink2)}
 .fld select,.fld input{font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);min-width:0;width:100%}
 #notebox{resize:vertical;min-height:70px}
-@media(max-width:1460px){.asof{display:none}}
-@media(max-width:1240px){.brand-sub{display:none}.top{gap:10px}.top nav a{padding:0 8px;font-size:13.5px}}
-@media(max-width:1060px){.top .gsearch input{width:130px}.top nav a{padding:0 6px;font-size:13px}}
-@media(max-width:960px){.top{position:static}.secnav{top:0}}
-@media(max-width:760px){
+@media screen and (max-width:1460px){.asof{display:none}}
+@media screen and (max-width:1240px){.brand-sub{display:none}.top{gap:10px}.top nav a{padding:0 8px;font-size:13.5px}}
+@media screen and (max-width:1060px){.top .gsearch input{width:130px}.top nav a{padding:0 6px;font-size:13px}}
+@media screen and (max-width:960px){.top{position:static}.secnav{top:0}}
+@media screen and (max-width:760px){
   .top{position:static;gap:8px 12px;padding:8px 14px}
   .brand-sub,.asof{display:none}
   .top .spacer{display:none}
@@ -384,13 +384,15 @@ table.cmp tr.grp th{font-size:11.5px;text-transform:uppercase;letter-spacing:.06
   .tile .v{font-size:14pt}
   .tiles{gap:8px;margin-bottom:10px}
   .grid2{grid-template-columns:1fr 1fr!important;gap:10px;margin-bottom:10px}
-  .rgrid{grid-template-columns:1fr 1fr!important;gap:8px}
+  .rgrid{grid-template-columns:repeat(4,1fr)!important;gap:8px}
+  .rcard .top2{display:block}
+  .rcard .cmp{text-align:left;font-size:7.5pt;margin-top:2px}
   .rgrid.four,.bands{grid-template-columns:repeat(4,1fr)!important;gap:8px}
   .risk{grid-template-columns:1fr 1fr!important}
   .riskcard{grid-template-columns:1fr 1.5fr!important;gap:18px}
   .scroll,.scroll.tall,.ptable{max-height:none!important;overflow:visible!important}
   .ptable th,.ptable td:nth-child(2),.scroll.tall th{position:static!important;box-shadow:none!important}
-  .ptable td:nth-child(2),.ptable th:nth-child(2){min-width:0}
+  .ptable td:nth-child(2),.ptable th:nth-child(2){min-width:3in;width:3in}
   table{font-size:8.5pt}
   th,td{padding:4px 6px}
   th{font-size:7.5pt}
@@ -400,7 +402,27 @@ table.cmp tr.grp th{font-size:11.5px;text-transform:uppercase;letter-spacing:.06
   .sect.newpage{break-before:page;page-break-before:always;margin-top:0}
   .ptable [data-np]{display:none}
   .ptable table{font-size:7.5pt;table-layout:auto}
-  .ptable td:nth-child(2){max-width:2.1in}
+  .ptable td:nth-child(2){max-width:3.1in}
+  .ptable td:nth-child(2) .small{font-size:6.5pt}
+  .stiles{grid-template-columns:repeat(3,1fr)!important}
+  .risk{padding:2px 13px!important;gap:0 28px!important}
+  .risk .row{padding:5px 0;break-inside:avoid}
+  .card.risk{break-inside:auto!important;page-break-inside:auto!important}
+  .risk .sub{font-size:7.5pt}
+  .risk .val{font-size:11pt}
+  .risk .meter{display:none}
+  .risk .row{padding:3px 0!important}
+  .strip>div{padding:8px 13px!important}
+  .rcard{padding:9px 13px!important}
+  .stat .s{margin-top:2px}
+  .tierline{padding:9px 13px}
+  .tl-main{font-size:11pt}
+  .seg{height:20px;margin-top:8px}
+  .hcard{padding:8px 10px 4px}
+  .hcard svg{max-height:.78in}
+  #pdetail .src{margin-top:4px}
+  .hc-head{font-size:8pt}
+  .hc-head b{font-size:10pt}
   .ptable th{font-size:6.5pt;white-space:normal}
   .ptable th,.ptable td{padding:3px 4px}
   .src{font-size:7.5pt;margin-top:8px}

@@ -895,7 +895,7 @@
       (topN ? '<div class="tl-names">' + topRows.slice(0, 15).map(function (r) {
         return '<a href="#/f/' + esc(r[0]) + '">' + esc(r[1]) + '</a> <span class="muted">(' + esc(r[IX.city]) + ', ' + (r[IX.sff] ? esc(r[IX.sff]) + ', ' : '') + 'score ' + fmt(r[IX.risk], 0) + ')</span>';
       }).join(' · ') + (topN > 15 ? ' · and ' + (topN - 15) + ' more' : '') + '</div>' : '') +
-      '<div class="src" style="margin-top:8px">Select a tier to filter the facility list below. Tiers come from each facility\'s regulatory screening score. Any SFF or SFF candidate is always ' + esc(TL[TL.length - 1][2]) + '. <a href="#/risk">How it works</a></div></div>';
+      '<div class="src" style="margin-top:8px"><span class="noprint">Select a tier to filter the facility list below. </span>Tiers come from each facility\'s regulatory screening score. Any SFF or SFF candidate is always ' + esc(TL[TL.length - 1][2]) + '. <a href="#/risk">How it works</a></div></div>';
 
     /* Overview */
     h += '<div class="card strip">' +
@@ -927,7 +927,7 @@
     h += '<div class="sect"><span>Star ratings <span class="muted" style="font-weight:400">· simple average of rated facilities</span></span>' + legend + '</div><div class="rgrid">' +
       rcard('Overall rating', 'overall', 'Overall Rating', o.chain && o.chain.overall) + rcard('Health inspection rating', 'health', 'Health Inspection Rating', o.chain && o.chain.health) +
       rcard('Staffing rating', 'staffing', 'Staffing Rating', o.chain && o.chain.staffing) + rcard('Quality measure rating', 'qm', 'QM Rating', o.chain && o.chain.qm) + '</div>' +
-      '<details class="printopen" style="margin-top:10px"><summary class="small">View rating distribution as a table</summary><div class="card" style="margin-top:10px"><div class="scroll"><table style="max-width:680px"><thead><tr><th>Rating</th><th class="n">Overall</th><th class="n">Health inspection</th><th class="n">Staffing</th><th class="n">Quality measures</th></tr></thead><tbody>' +
+      '<details style="margin-top:10px"><summary class="small">View rating distribution as a table</summary><div class="card" style="margin-top:10px"><div class="scroll"><table style="max-width:680px"><thead><tr><th>Rating</th><th class="n">Overall</th><th class="n">Health inspection</th><th class="n">Staffing</th><th class="n">Quality measures</th></tr></thead><tbody>' +
       [5, 4, 3, 2, 1, 'unrated'].map(function (k) {
         return '<tr><td>' + (k === 'unrated' ? '<span class="na">Not rated</span>' : stars(k)) + '</td>' + ['overall', 'health', 'staffing', 'qm'].map(function (c) { return '<td class="n">' + D[c][k] + '</td>'; }).join('') + '</tr>';
       }).join('') + '</tbody></table></div></div></details>';
@@ -964,12 +964,12 @@
     function stile(label, m, dec, unit, usKey) {
       return '<div class="tile"><div class="k">' + label + '</div><div class="v">' + (m.avg == null ? NA : fmt(m.avg, dec) + unit) + '</div><div class="s">US average ' + fmt(US.staffing[usKey], dec) + unit + ' · ' + m.n + ' of ' + n + ' reporting</div></div>';
     }
-    h += '<div class="sect"><span>Staffing <span class="muted" style="font-weight:400">· simple average of reporting facilities</span></span></div><div class="tiles" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">' +
+    h += '<div class="sect"><span>Staffing <span class="muted" style="font-weight:400">· simple average of reporting facilities</span></span></div><div class="tiles stiles" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">' +
       stile('Total nurse hours per resident day', s.hprd, 2, '', 'Total nurse hours per resident day') +
       stile('RN hours per resident day', s.rnHprd, 2, '', 'RN hours per resident day') +
       stile('Total nursing staff turnover', s.turnover, 1, '%', 'Total nursing staff turnover (%)') + '</div>';
 
-    h += '<div class="sect newpage"><span>Facilities <span class="muted noprint" style="font-weight:400">· select a column heading to sort</span></span></div><div class="card" style="padding:6px 8px"><div class="controls ptools noprint" id="ptools"></div><div class="scroll ptable" id="ptable"></div></div>' +
+    h += '<div class="sect"><span>Facilities <span class="muted noprint" style="font-weight:400">· select a column heading to sort</span></span></div><div class="card" style="padding:6px 8px"><div class="controls ptools noprint" id="ptools"></div><div class="scroll ptable" id="ptable"></div></div>' +
       '<div class="sect noprint"><span>Map</span></div><div class="card noprint"><div class="controls" style="margin:0"><button id="mapbtn">Show map</button>' +
       '<span id="maplegend" class="legend" hidden>' + S.lookups.risk.tiers.map(function (t, i) { return '<span><i class="sw tsw t' + i + '"></i>' + esc(t[2]) + '</span>'; }).join('') + '</span></div>' +
       '<div id="pmap" class="pmap"></div><p class="src">Locations are the coordinates CMS publishes. Map imagery is loaded from OpenStreetMap when you select Show map.</p></div>' +
@@ -1583,7 +1583,7 @@
     var inRel = dates.map(function (d) { return fs.filter(function (f) { return at(f, 'overall', d) != null || at(f, 'sff', d) != null; }).length; });
     var first = function (v) { for (var i = 0; i < v.length; i++) if (v[i] != null) return v[i]; return null; };
     return '<div class="rgrid four">' + M.map(function (m) { return trendChart(m[0], dates, m[1], m[2]); }).join('') + '</div>' +
-      '<details style="margin-top:12px" class="printopen"><summary class="small">View as a table</summary><div class="scroll" style="margin-top:8px"><table class="cards"><thead><tr><th>Measure</th><th class="n">' + monthLabel(dates[0]) + '</th><th class="n">' + monthLabel(dates[dates.length - 1]) + '</th><th class="n">Change</th></tr></thead><tbody>' +
+      '<details style="margin-top:12px"><summary class="small">View as a table</summary><div class="scroll" style="margin-top:8px"><table class="cards"><thead><tr><th>Measure</th><th class="n">' + monthLabel(dates[0]) + '</th><th class="n">' + monthLabel(dates[dates.length - 1]) + '</th><th class="n">Change</th></tr></thead><tbody>' +
       M.map(function (m) {
         var a = first(m[1]), b = m[1][m[1].length - 1], d = a == null || b == null ? null : b - a;
         return '<tr><td>' + m[0] + '</td><td class="n">' + fmt(a, m[2]) + '</td><td class="n">' + fmt(b, m[2]) + '</td><td class="n">' + (d == null ? NA : (d > 0 ? '+' : d < 0 ? '−' : '') + fmt(Math.abs(d), m[2])) + '</td></tr>';
